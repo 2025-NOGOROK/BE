@@ -41,6 +41,9 @@ public class DailyEvaluation extends BaseEntity {
     @Column(nullable = false)
     private Weather weather;
 
+    @Column(name = "sleep_hours")
+    private Integer sleepHours;
+
     @Column(length = 500)
     private String specialNotes;
 }

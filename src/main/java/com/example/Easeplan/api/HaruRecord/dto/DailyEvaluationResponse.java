@@ -11,12 +11,14 @@ public class DailyEvaluationResponse {
     private final String emotion;
     private final String fatigue;
     private final String weather;
+    private final Integer sleepHours;
     private final String specialNotes;
 
-    public DailyEvaluationResponse(Emotion emotion, Fatigue fatigue, Weather weather, String specialNotes) {
+    public DailyEvaluationResponse(Emotion emotion, Fatigue fatigue, Weather weather, Integer sleepHours, String specialNotes) {
         this.emotion = emotion.getDescription();
         this.fatigue = fatigue.getDescription();
         this.weather = weather.getDescription();
+        this.sleepHours=sleepHours;
         this.specialNotes = specialNotes;
     }
 
@@ -26,6 +28,7 @@ public class DailyEvaluationResponse {
                 evaluation.getEmotion(),
                 evaluation.getFatigueLevel(),
                 evaluation.getWeather(),
+                evaluation.getSleepHours(),
                 evaluation.getSpecialNotes()
         );
     }

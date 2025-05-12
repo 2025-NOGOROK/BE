@@ -13,5 +13,6 @@ public class DailyEvaluationRequest {
     private Emotion emotion;
     private Fatigue fatigueLevel;
     private Weather weather;
+    private Double sleepHours;
     private String specialNotes;
 }
