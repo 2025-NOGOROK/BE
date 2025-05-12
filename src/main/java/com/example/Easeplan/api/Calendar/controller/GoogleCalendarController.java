@@ -6,6 +6,8 @@ import com.example.Easeplan.api.Calendar.service.GoogleCalendarService;
 import com.example.Easeplan.api.Calendar.service.GoogleOAuthService;
 import com.example.Easeplan.api.Fcm.service.NotificationScheduler;
 import com.google.api.services.calendar.model.Event;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
@@ -15,7 +17,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import com.google.api.services.calendar.model.Events;
-
+@Tag(name = "GoogleCalendar", description = "구글캘린더 API")
 @RestController
 @RequestMapping("/auth/google")
 public class GoogleCalendarController {
@@ -30,6 +32,8 @@ public class GoogleCalendarController {
     }
 
     // 구글 인증 콜백 (authorization code 수신)
+    @Operation(summary = "구글 캘린더 인증 callback", description = """ 
+            인증을 통해 구글캘린더를 연동합니다.""")
     @GetMapping("/callback")
     public Map<String, Object> oauth2Callback(@RequestParam String code) {
         // code로 access token 교환
@@ -39,6 +43,10 @@ public class GoogleCalendarController {
     }
 
     // 일정 조회 (헤더에서 토큰 추출)
+    @Operation(summary = "구글캘린더 조회", description = """
+            구글 캘린더를 조회합니다.<br>
+            헤더에 accessToken을 넣어주세요.<br>
+            """)
     @GetMapping("/events")
     public Events getEvents(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -51,6 +59,10 @@ public class GoogleCalendarController {
     }
 
     // access token으로 일정 조회 (날짜 범위 추가)
+    @Operation(summary = "구글캘린더 특정 일정으로 조회", description = """
+            특정 날에 구글 캘린더를 조회합니다.<br>
+            헤더에 accessToken을 넣어주세요.<br>
+            """)
     @GetMapping("/free-time")
     public ResponseEntity<List<FormattedTimeSlot>> getFormattedFreeTimeSlots(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -62,6 +74,10 @@ public class GoogleCalendarController {
     }
 
     // 일정 추가 (예시: accessToken이 필요하면 마찬가지로 헤더에서 추출)
+    @Operation(summary = "구글캘린더에 일정을 추가", description = """
+            특정 날에 구글 캘린더에 일정을 추가합니다.<br>
+            헤더에 accessToken을 넣어주세요.<br>
+            """)
     @PostMapping("/eventsPlus")
     public ResponseEntity<Event> addEvent(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -98,6 +114,10 @@ public class GoogleCalendarController {
     }
 
     //일정 삭제
+    @Operation(summary = "구글캘린더에 일정을 삭제", description = """
+            특정 날에 구글 캘린더에 일정을 삭제합니다.<br>
+            헤더에 accessToken을 넣어주세요.<br>
+            """)
     @DeleteMapping("/eventsPlus")
     public ResponseEntity<Void> deleteEvent(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
