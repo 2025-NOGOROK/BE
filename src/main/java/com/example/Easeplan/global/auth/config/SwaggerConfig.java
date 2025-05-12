@@ -22,7 +22,7 @@ public class SwaggerConfig {
                                 .name("Authorization")
                 ))
                 .info(new Info()
-                        .title("My API")
+                        .title("NOGOROK API")
                         .description("API 설명")
                         .version("v1.0"));
     }
