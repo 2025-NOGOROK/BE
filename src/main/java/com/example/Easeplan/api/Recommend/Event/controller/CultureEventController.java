@@ -20,6 +20,7 @@ public class CultureEventController {
             @RequestParam(defaultValue = "10") int numOfRows,
             @RequestParam(defaultValue = "1") int pageNo
     ) throws Exception {
+
         // title은 2자 이상이어야 정상 동작
         if (title == null || title.trim().length() < 2) {
             throw new IllegalArgumentException("title은 2자 이상이어야 합니다.");
