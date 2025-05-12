@@ -33,8 +33,12 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**","/auth/google/callback","/auth/google/events","/auth/google/free-time",
-                                "/error","/api/naver/**","/api/culture/events","/api/tour/location","/auth/google/eventsPlus").permitAll()
-                        .requestMatchers("/api/survey/**","/api/evaluations","/api/fcm/**").authenticated()
+                                "/error","/api/naver/**","/api/culture/events","/api/tour/location","/auth/google/eventsPlus",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/swagger-resources/**",
+                                "/webjars/**").permitAll()
+                        .requestMatchers("/api/survey/**","/api/haru","/api/fcm/**","/api/mypage/**","/api/devices").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
