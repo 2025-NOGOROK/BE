@@ -32,7 +32,7 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/google/callback","/auth/google/events","/auth/google/free-time",
+                        .requestMatchers("/auth/**","/auth/google/callback","/auth/google/events","/auth/google/free-time",
                                 "/error","/api/naver/**","/api/culture/events","/api/tour/location","/auth/google/eventsPlus").permitAll()
                         .requestMatchers("/api/survey/**","/api/evaluations","/api/fcm/**").authenticated()
                         .anyRequest().authenticated())
