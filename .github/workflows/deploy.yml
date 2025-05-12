@@ -21,6 +21,14 @@ jobs:
       - name: application.yml 파일 만들기
         run: echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./src/main/resources/application.yml
 
+      # 🔥 Firebase 서비스 계정 키 생성 (추가된 부분)
+      - name: Make Firebase Service Account Key
+        run: |
+          mkdir -p ./src/main/resources/firebase
+          echo $ACCOUNT_KEY | base64 -d > ./src/main/resources/firebase/serviceAccountKey.json
+        env:
+          ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+
       - name: gradlew 실행 권한 부여
         run: chmod +x ./gradlew
 
