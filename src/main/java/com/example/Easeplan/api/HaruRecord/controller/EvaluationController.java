@@ -37,6 +37,7 @@ public class EvaluationController {
         return evaluationService.getEvaluationByDate(user, date);
     }
 
+
     // ★ 추가: 기록 저장 API
     @Operation(summary = "하루기록", description = """
             일정에 대한 하루기록을 저장합니다.
