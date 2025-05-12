@@ -3,6 +3,7 @@ package com.example.Easeplan.api.Survey.service;
 import com.example.Easeplan.api.Survey.domain.UserSurvey;
 import com.example.Easeplan.api.Survey.dto.UserSurveyRequest;
 import com.example.Easeplan.api.Survey.repository.UserSurveyRepository;
+import com.example.Easeplan.global.auth.domain.User;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,9 +18,9 @@ public class UserSurveyService {
     }
 
     @Transactional
-    public void saveSurvey(String email, UserSurveyRequest request) {
+    public void saveSurvey(User user, UserSurveyRequest request) {
         UserSurvey survey = UserSurvey.builder()
-                .email(email)
+                .user(user)  // user 객체를 넣어야 함
                 .scheduleType(request.scheduleType())
                 .suddenChangePreferred(request.suddenChangePreferred())
                 .chronotype(request.chronotype())

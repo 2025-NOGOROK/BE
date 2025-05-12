@@ -1,5 +1,6 @@
 package com.example.Easeplan.api.Survey.domain;
 
+import com.example.Easeplan.global.auth.domain.User;
 import jakarta.persistence.*;
 import lombok.*;
 import java.util.List;
@@ -13,7 +14,9 @@ public class UserSurvey {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String email; // 로그인된 유저(회원가입된 사람)의 식별자
+    @OneToOne
+    @JoinColumn(name = "email", referencedColumnName = "email")
+    private User user; // 로그인된 유저(회원가입된 사람)의 식별자
 
     private String scheduleType; // "loose" or "tight"
     private Boolean suddenChangePreferred; // true/false
