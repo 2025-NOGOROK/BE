@@ -4,6 +4,7 @@ import com.example.Easeplan.global.auth.domain.User;
 import com.example.Easeplan.global.auth.dto.*;
 import com.example.Easeplan.global.auth.repository.RefreshTokenRepository;
 import com.example.Easeplan.global.auth.repository.UserRepository;
+import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -117,6 +118,12 @@ public class AuthService {
 
         user.setPassword(passwordEncoder.encode(request.newPassword()));
         userRepository.save(user);
+    }
+
+    //로그아웃
+    @Transactional
+    public void logout(String email) {
+        refreshTokenRepository.deleteByEmail(email); // 리프레시 토큰 삭제
     }
 
     public Optional<User> findByEmail(String email) {

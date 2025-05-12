@@ -5,6 +5,8 @@ import com.example.Easeplan.global.auth.dto.SignInRequest;
 import com.example.Easeplan.global.auth.dto.SignUpRequest;
 import com.example.Easeplan.global.auth.dto.TokenResponse;
 import com.example.Easeplan.global.auth.service.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -14,6 +16,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Optional;
 
+
+@Tag(name = "Auth", description = "로그인관련 API")
 @RestController
 @RequestMapping("/auth")
 public class AuthController {
@@ -39,6 +43,8 @@ public class AuthController {
         public T getData() { return data; }
     }
 
+    @Operation(summary = "회원가입", description = """ 
+            회원가입을 진행합니다.""")
     @PostMapping("/signUp")
     public ResponseEntity<CustomResponse<TokenResponse>> signUp(@RequestBody SignUpRequest request) {
         try {
@@ -52,12 +58,15 @@ public class AuthController {
             );
         }
     }
+    @Operation(summary = "로그인", description = """
+            로그인을 진행합니다.""")
     @PostMapping("/signIn")
     public ResponseEntity<CustomResponse<TokenResponse>> signIn(@RequestBody SignInRequest request) {
         TokenResponse response = authService.signIn(request);
         return ResponseEntity.status(HttpStatus.OK).body(new CustomResponse<>("로그인에 성공했습니다.", response));
     }
-
+    @Operation(summary = "비밀번호 변경", description = """
+            비밀번호를 변경합니다.""")
     @PostMapping("/resetPassword")
     public ResponseEntity<CustomResponse<Void>> resetPassword(@RequestBody PasswordResetRequest request) {
         try {

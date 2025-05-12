@@ -1,11 +1,15 @@
 package com.example.Easeplan.global.auth.domain;
 
+import com.example.Easeplan.api.Calendar.domain.GoogleCalendarInfo;
+import com.example.Easeplan.api.SmartWatch.domain.SmartwatchData;
+import com.example.Easeplan.api.Survey.domain.UserSurvey;
 import jakarta.persistence.*;
 import lombok.*;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -60,6 +64,9 @@ public class User extends BaseEntity implements UserDetails {
     @Column(nullable = false)
     private boolean locationPolicyAgreed;
 
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
+    private UserSurvey userSurvey;
+
     // 추가
     public void setPassword(String password) {
         this.password = password;
@@ -96,4 +103,10 @@ public class User extends BaseEntity implements UserDetails {
     public boolean isEnabled() {
         return true;
     }
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<GoogleCalendarInfo> calendarEvents = new ArrayList<>();
+
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    private List<SmartwatchData> smartwatchData = new ArrayList<>();
 }
