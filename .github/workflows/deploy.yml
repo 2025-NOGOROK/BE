@@ -25,9 +25,10 @@ jobs:
       - name: Make Firebase Service Account Key
         run: |
           mkdir -p ./src/main/resources/firebase
-          echo $ACCOUNT_KEY | base64 -d > ./src/main/resources/firebase/serviceAccountKey.json
+          echo -n "$ACCOUNT_KEY" | base64 -d > ./src/main/resources/firebase/serviceAccountKey.json
         env:
           ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+
 
       - name: gradlew 실행 권한 부여
         run: chmod +x ./gradlew
