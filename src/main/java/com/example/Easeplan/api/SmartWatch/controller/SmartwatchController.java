@@ -44,7 +44,7 @@ public class SmartwatchController {
 
     // 기기 데이터 조회
     @Operation(summary = "스마트 워치 조회", description = """
-            스마트 워치를 조회합니다.<br>
+            스마트 워치 데이터를 조회합니다.<br>
             헤더에 accessToken을 넣어주세요.<br>
             """)
     @GetMapping("/smartwatch")
