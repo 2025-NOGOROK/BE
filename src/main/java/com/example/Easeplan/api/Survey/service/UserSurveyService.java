@@ -17,19 +17,23 @@ public class UserSurveyService {
         this.repository = repository;
     }
 
+
     @Transactional
     public void saveSurvey(User user, UserSurveyRequest request) {
+
+        // null-safe하게 처리
+        List<String> methods = (request.getHasStressRelief() != null && request.getHasStressRelief())
+                ? (request.getStressReliefMethods() != null ? request.getStressReliefMethods() : List.of())
+                : List.of();
         UserSurvey survey = UserSurvey.builder()
-                .user(user)  // user 객체를 넣어야 함
-                .scheduleType(request.scheduleType())
-                .suddenChangePreferred(request.suddenChangePreferred())
-                .chronotype(request.chronotype())
-                .preferAlone(request.preferAlone())
-                .stressReaction(request.stressReaction())
-                .hasStressRelief(request.hasStressRelief())
-                .stressReliefMethods(
-                        request.hasStressRelief() != null && request.hasStressRelief() ? request.stressReliefMethods() : List.of()
-                )
+                .user(user)
+                .scheduleType(request.getScheduleType())          // ✅ getScheduleType()
+                .suddenChangePreferred(request.getSuddenChangePreferred())
+                .chronotype(request.getChronotype())
+                .preferAlone(request.getPreferAlone())
+                .stressReaction(request.getStressReaction())
+                .hasStressRelief(request.getHasStressRelief())
+                .stressReliefMethods(methods)   // ← 여기에 methods 사용!
                 .build();
         repository.save(survey);
     }

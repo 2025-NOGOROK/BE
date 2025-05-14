@@ -1,13 +1,17 @@
 package com.example.Easeplan.api.Survey.dto;
 
-import java.util.List;
+import lombok.AllArgsConstructor;
+import lombok.Getter;
 
-public record UserSurveyRequest(
-        String scheduleType,
-        Boolean suddenChangePreferred,
-        String chronotype,
-        String preferAlone,
-        String stressReaction,
-        Boolean hasStressRelief,
-        List<String> stressReliefMethods
-) {}
+import java.util.List;
+@Getter
+@AllArgsConstructor
+public class UserSurveyRequest {
+    private String scheduleType;
+    private Boolean suddenChangePreferred;
+    private String chronotype;
+    private String preferAlone;
+    private String stressReaction;
+    private Boolean hasStressRelief;
+    private List<String> stressReliefMethods;
+}
