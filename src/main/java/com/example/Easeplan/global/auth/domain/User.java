@@ -67,6 +67,18 @@ public class User extends BaseEntity implements UserDetails {
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
     private UserSurvey userSurvey;
 
+    @Column(name = "google_access_token")
+    private String googleAccessToken;
+
+    @Column(name = "google_refresh_token")
+    private String googleRefreshToken;
+
+    // 액세스 토큰 업데이트 메서드
+    public void updateGoogleTokens(String accessToken, String refreshToken) {
+        this.googleAccessToken = accessToken;
+        this.googleRefreshToken = refreshToken;
+    }
+
     // 추가
     public void setPassword(String password) {
         this.password = password;
