@@ -11,7 +11,8 @@ import java.util.Map;
 @Service
 public class FlaskRecommendService {
     private final RestTemplate restTemplate = new RestTemplate();
-    private final String flaskUrl = "http://localhost:5001/recommend";
+    private final String flaskUrl = "http://3.39.65.123:5000/recommend";
+
 
     public List<String> getRecommendations(UserSurveyRequest request) {
         // ✅ 올바른 getter 메서드 사용
