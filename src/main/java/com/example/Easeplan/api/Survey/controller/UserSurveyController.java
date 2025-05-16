@@ -143,6 +143,7 @@ public class UserSurveyController {
     }
 
     // 3. 시나리오 조회 (GET)
+    @Operation(summary = "유형별 시나리오 조회", description = "GOOGLE, SURVEY, STRESS 3가지 중 원하는 유형의 시나리오를 조회합니다.")
     @GetMapping("/scenarios")
     public ResponseEntity<ScenarioResponse> getScenarios(
             @RequestParam String selectionKey,
