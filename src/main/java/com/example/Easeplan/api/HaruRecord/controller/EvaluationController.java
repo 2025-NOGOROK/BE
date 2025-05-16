@@ -25,7 +25,7 @@ public class EvaluationController {
     public EvaluationController(EvaluationService evaluationService) {
         this.evaluationService = evaluationService;
     }
-    @Operation(summary = "하루기록", description = """
+    @Operation(summary = "하루기록 조회", description = """
             일정에 대한 하루기록을 조회합니다.
             """)
     @GetMapping
@@ -39,7 +39,7 @@ public class EvaluationController {
 
 
     // ★ 추가: 기록 저장 API
-    @Operation(summary = "하루기록", description = """
+    @Operation(summary = "하루기록 저장", description = """
             일정에 대한 하루기록을 저장합니다.
             """)
     @PostMapping
