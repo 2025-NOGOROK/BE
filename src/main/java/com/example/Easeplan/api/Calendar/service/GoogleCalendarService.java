@@ -2,6 +2,7 @@ package com.example.Easeplan.api.Calendar.service;
 
 import com.example.Easeplan.api.Calendar.dto.TimeSlot;
 import com.example.Easeplan.api.Calendar.dto.FormattedTimeSlot;
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.auth.oauth2.Credential;
@@ -12,6 +13,7 @@ import com.google.api.services.calendar.model.*;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URLEncoder;
@@ -26,21 +28,75 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class GoogleCalendarService {
+    @Value("${google.client-id}")
+    private String clientId;
 
-    public Calendar getCalendarService(String accessToken) throws Exception {
-        AccessToken token = new AccessToken(accessToken, null); // 만료시간 null 가능
-        GoogleCredentials credentials = GoogleCredentials.create(token);
+    @Value("${google.client-secret}")
+    private String clientSecret;
+
+    public Calendar getCalendarService( String accessToken, String refreshToken) throws Exception {
+        GoogleClientSecrets clientSecrets = new GoogleClientSecrets()
+                .setWeb(new GoogleClientSecrets.Details()
+                        .setClientId(clientId) // ✅ 주입된 값 사용
+                        .setClientSecret(clientSecret)); // ✅ 주입된 값 사용
+        // ✅ RefreshToken을 포함한 Credentials 생성
+        GoogleCredential credential = new GoogleCredential.Builder()
+                .setTransport(GoogleNetHttpTransport.newTrustedTransport())
+                .setJsonFactory(GsonFactory.getDefaultInstance())
+                .setClientSecrets(clientSecrets)
+                .build()
+                .setAccessToken(accessToken)
+                .setRefreshToken(refreshToken);
+
         return new Calendar.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 GsonFactory.getDefaultInstance(),
-                new HttpCredentialsAdapter(credentials)
+                credential
         ).setApplicationName("YOUR_APP_NAME").build();
     }
 
+    public List<FormattedTimeSlot> getFormattedEvents(
+            String accessToken,
+            String refreshToken,
+            String calendarId,
+            String timeMin,
+            String timeMax
+    ) throws Exception {
+        Events events = getEvents(accessToken, refreshToken, calendarId, timeMin, timeMax);
+        List<FormattedTimeSlot> slots = new ArrayList<>();
+        for (Event event : events.getItems()) {
+            String title = event.getSummary();
+            String description = event.getDescription();
+
+            // NPE 방지: 올데이 이벤트 처리
+            String startDateTime;
+            if (event.getStart().getDateTime() != null) {
+                startDateTime = event.getStart().getDateTime().toStringRfc3339();
+            } else if (event.getStart().getDate() != null) {
+                startDateTime = event.getStart().getDate().toString();
+            } else {
+                startDateTime = null;
+            }
+
+            String endDateTime;
+            if (event.getEnd().getDateTime() != null) {
+                endDateTime = event.getEnd().getDateTime().toStringRfc3339();
+            } else if (event.getEnd().getDate() != null) {
+                endDateTime = event.getEnd().getDate().toString();
+            } else {
+                endDateTime = null;
+            }
+
+            slots.add(new FormattedTimeSlot(title, description, startDateTime, endDateTime));
+        }
+        return slots;
+    }
+
+
     // 1. 일정 전체 조회 (기존 기능)
 // 1. 일정 전체 조회 (날짜 범위 필터링 추가)
-    public Events getEvents(String accessToken, String calendarId, String timeMinStr, String timeMaxStr) throws Exception {
-        Calendar service = getCalendarService(accessToken);
+    public Events getEvents(String accessToken,String refreshToken, String calendarId, String timeMinStr, String timeMaxStr) throws Exception {
+        Calendar service = getCalendarService( accessToken, refreshToken);
 
         // 인코딩하지 않고, 문자열 그대로 사용
         DateTime timeMin = new DateTime(timeMinStr); // 또는 DateTime.parseRfc3339(timeMinStr)
@@ -57,8 +113,8 @@ public class GoogleCalendarService {
     }
 
     // 2. 빈 시간대(밀리초) 조회 (기존 기능)
-    public List<TimeSlot> getFreeTimeSlots(String accessToken, LocalDate date) throws Exception {
-        Calendar service = getCalendarService(accessToken);
+    public List<TimeSlot> getFreeTimeSlots(String accessToken, String refreshToken, LocalDate date) throws Exception {
+        Calendar service = getCalendarService(accessToken,refreshToken);
 
         // 시간 범위 설정 (하루 전체)
         DateTime timeMin = new DateTime(date.toString() + "T00:00:00.000+09:00");
@@ -114,8 +170,8 @@ public class GoogleCalendarService {
     }
 
     // 3. 빈 시간대 "0시 ~ 19시" 형식 반환 (신규 기능)
-    public List<FormattedTimeSlot> getFormattedFreeTimeSlots(String accessToken, LocalDate date) throws Exception {
-        List<TimeSlot> freeSlots = getFreeTimeSlots(accessToken, date);
+    public List<FormattedTimeSlot> getFormattedFreeTimeSlots(String accessToken,String refreshToken, LocalDate date) throws Exception {
+        List<TimeSlot> freeSlots = getFreeTimeSlots(accessToken, refreshToken,date);
         List<FormattedTimeSlot> formattedSlots = new ArrayList<>();
         ZoneId seoulZone = ZoneId.of("Asia/Seoul");
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("H시");
@@ -127,6 +183,8 @@ public class GoogleCalendarService {
             // endTime이 0시(00:00)이면서, startTime이 0보다 크면 "24시"로 표시
             String endDisplay = (end.getHour() == 0 && start.getHour() > 0) ? "24시" : end.format(formatter);
             formattedSlots.add(new FormattedTimeSlot(
+                    null, // title (필수 필드이므로 필요시 기본값 설정)
+                    null,
                     start.format(formatter),
                     endDisplay
             ));
@@ -136,7 +194,9 @@ public class GoogleCalendarService {
 
     // 일정 추가
     public Event addEvent(
+
             String accessToken,
+            String refreshToken, // ✅ 추가
             String calendarId,
             String title,
             String description,
@@ -148,7 +208,7 @@ public class GoogleCalendarService {
             boolean fixed,
             boolean userLabel
     ) throws Exception {
-        Calendar service = getCalendarService(accessToken);
+        Calendar service = getCalendarService(accessToken, refreshToken);
 
         Event event = new Event()
                 .setSummary(title)
@@ -184,8 +244,14 @@ public class GoogleCalendarService {
 
 
     // 일정 삭제
-    public void deleteEvent(String accessToken, String calendarId, String eventId) throws Exception {
-        Calendar service = getCalendarService(accessToken);
+// 3. deleteEvent 메서드 수정
+    public void deleteEvent(
+            String accessToken,
+            String refreshToken, // ✅ 추가
+            String calendarId,
+            String eventId
+    ) throws Exception {
+        Calendar service = getCalendarService(accessToken, refreshToken); // ✅ refreshToken 전달
         service.events().delete(calendarId, eventId).execute();
     }
 }

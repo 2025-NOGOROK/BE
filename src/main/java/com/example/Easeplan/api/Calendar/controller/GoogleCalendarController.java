@@ -5,12 +5,17 @@ import com.example.Easeplan.api.Calendar.dto.FormattedTimeSlot;
 import com.example.Easeplan.api.Calendar.service.GoogleCalendarService;
 import com.example.Easeplan.api.Calendar.service.GoogleOAuthService;
 import com.example.Easeplan.api.Fcm.service.NotificationScheduler;
+import com.example.Easeplan.global.auth.domain.User;
+import com.example.Easeplan.global.auth.repository.UserRepository;
 import com.google.api.services.calendar.model.Event;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -24,22 +29,45 @@ public class GoogleCalendarController {
     private final GoogleOAuthService oAuthService;
     private final GoogleCalendarService calendarService;
     private final NotificationScheduler notificationScheduler;
+    private final UserRepository userRepository; // ✅ 생성자에 추가
 
-    public GoogleCalendarController(GoogleOAuthService oAuthService, GoogleCalendarService calendarService,NotificationScheduler notificationScheduler) {
+
+    public GoogleCalendarController(GoogleOAuthService oAuthService, GoogleCalendarService calendarService,NotificationScheduler notificationScheduler,UserRepository userRepository) {
         this.oAuthService = oAuthService;
         this.calendarService = calendarService;
         this.notificationScheduler = notificationScheduler;
+        this.userRepository = userRepository;
     }
 
     // 구글 인증 콜백 (authorization code 수신)
     @Operation(summary = "구글 캘린더 인증 callback", description = """ 
             인증을 통해 구글캘린더를 연동합니다.""")
     @GetMapping("/callback")
-    public Map<String, Object> oauth2Callback(@RequestParam String code) {
-        // code로 access token 교환
-        Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(code);
-        // access_token, refresh_token 등 반환
-        return tokenResponse;
+    public ResponseEntity<?> oauth2Callback(@RequestParam String code) {
+        try {
+            Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(code);
+            String accessToken = (String) tokenResponse.get("access_token");
+            if (accessToken == null) {
+                return ResponseEntity.status(400).body("토큰 발급 실패: access_token이 없습니다.");
+            }
+            Map<String, Object> userInfo = oAuthService.getGoogleUserInfo(accessToken);
+            String email = (String) userInfo.get("email");
+            if (email == null) {
+                return ResponseEntity.status(400).body("구글 userinfo에서 email을 가져올 수 없습니다.");
+            }
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found: " + email));
+            user.updateGoogleTokens(
+                    accessToken,
+                    (String) tokenResponse.get("refresh_token")
+            );
+            userRepository.save(user);
+            return ResponseEntity.ok(tokenResponse);
+        } catch (Exception e) {
+            // 에러 로그 남기기
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("구글 인증 중 오류 발생: " + e.getMessage());
+        }
     }
 
     // 일정 조회 (헤더에서 토큰 추출)
@@ -52,26 +80,44 @@ public class GoogleCalendarController {
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
             @RequestParam(defaultValue = "primary") String calendarId,
             @RequestParam String timeMin,  // "2025-05-31T00:00:00+09:00" 형식
-            @RequestParam String timeMax   // "2025-05-31T23:59:59+09:00" 형식
+            @RequestParam String timeMax,   // "2025-05-31T23:59:59+09:00" 형식
+            @AuthenticationPrincipal UserDetails userDetails // ✅ 추가
     ) throws Exception {
         String accessToken = extractBearerToken(authorization);
-        return calendarService.getEvents(accessToken, calendarId, timeMin, timeMax);
+        // ✅ 사용자 refreshToken 조회
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        String refreshToken = user.getGoogleRefreshToken();
+
+
+        return calendarService.getEvents(accessToken, refreshToken,calendarId, timeMin, timeMax);
     }
 
     // access token으로 일정 조회 (날짜 범위 추가)
-    @Operation(summary = "구글캘린더 특정 일정으로 조회", description = """
-            특정 날에 구글 캘린더를 조회합니다.<br>
-            헤더에 accessToken을 넣어주세요.<br>
-            """)
-    @GetMapping("/free-time")
-    public ResponseEntity<List<FormattedTimeSlot>> getFormattedFreeTimeSlots(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date
-    ) throws Exception {
-        String accessToken = extractBearerToken(authorization);
-        List<FormattedTimeSlot> slots = calendarService.getFormattedFreeTimeSlots(accessToken, date);
-        return ResponseEntity.ok(slots);
-    }
+//    @Operation(summary = "구글캘린더 특정 일정으로 빈 일정 조회", description = """
+//            특정 날에 구글 캘린더를 조회합니다.<br>
+//            헤더에 accessToken을 넣어주세요.<br>
+//            """)
+//    @GetMapping("/free-time")
+//    public ResponseEntity<List<FormattedTimeSlot>> getFormattedFreeTimeSlots(
+//            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+//            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+//            @AuthenticationPrincipal UserDetails userDetails // ✅ 추가
+//    ) throws Exception {
+//        String accessToken = extractBearerToken(authorization);
+//        // ✅ 사용자 refreshToken 조회
+//        User user = userRepository.findByEmail(userDetails.getUsername())
+//                .orElseThrow(() -> new RuntimeException("User not found"));
+//        String refreshToken = user.getGoogleRefreshToken();
+//        List<FormattedTimeSlot> slots = calendarService.getFormattedFreeTimeSlots(accessToken,refreshToken, date);
+//        return ResponseEntity.ok(slots);
+//    }
+
+    @Value("${google.client-id}")
+    private String clientId;
+
+    @Value("${google.client-secret}")
+    private String clientSecret;
 
     // 일정 추가 (예시: accessToken이 필요하면 마찬가지로 헤더에서 추출)
     @Operation(summary = "구글캘린더에 일정을 추가", description = """
@@ -81,10 +127,20 @@ public class GoogleCalendarController {
     @PostMapping("/eventsPlus")
     public ResponseEntity<Event> addEvent(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
-            @RequestBody CalendarEventRequest req) throws Exception {
+            @RequestBody CalendarEventRequest req, @AuthenticationPrincipal UserDetails userDetails // ✅ 추가
+            ) throws Exception {
         String accessToken = extractBearerToken(authorization);
+// ✅ 현재 사용자 조회
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // ✅ 인스턴스 메서드 호출
+        String refreshToken = user.getGoogleRefreshToken(); // ✅ refreshToken 조회
+
         Event created = calendarService.addEvent(
-                accessToken,
+
+                user.getGoogleAccessToken(),
+                refreshToken,
                 req.calendarId,
                 req.title,
                 req.description,
@@ -122,10 +178,17 @@ public class GoogleCalendarController {
     public ResponseEntity<Void> deleteEvent(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
             @RequestParam(defaultValue = "primary") String calendarId,
-            @RequestParam String eventId
+            @RequestParam String eventId,
+            @AuthenticationPrincipal UserDetails userDetails // ✅ 추가
     ) throws Exception {
         String accessToken = extractBearerToken(authorization);
-        calendarService.deleteEvent(accessToken, calendarId, eventId);
+        User user = userRepository.findByEmail(userDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // ✅ 인스턴스 메서드 호출
+        String refreshToken = user.getGoogleRefreshToken(); // ✅ refreshToken 조회
+
+        calendarService.deleteEvent(accessToken, refreshToken,calendarId, eventId);
         return ResponseEntity.noContent().build();
     }
 
