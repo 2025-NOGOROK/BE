@@ -7,6 +7,7 @@ import java.util.List;
 
 @Entity
 @Getter
+@Setter
 @Builder
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
@@ -15,7 +16,7 @@ public class UserSurvey {
     private Long id;
 
     @OneToOne
-    @JoinColumn(name = "email", referencedColumnName = "email")
+    @JoinColumn(name = "user_id")
     private User user; // 로그인된 유저(회원가입된 사람)의 식별자
 
     private String scheduleType; // "loose" or "tight"
