@@ -83,6 +83,7 @@ public class AuthController {
         return ResponseEntity.ok(new CustomResponse<>(message, exists));
     }
 
+
     @Operation(summary = "비밀번호 변경", description = """
             비밀번호를 변경합니다.""")
     @PostMapping("/resetPassword")
