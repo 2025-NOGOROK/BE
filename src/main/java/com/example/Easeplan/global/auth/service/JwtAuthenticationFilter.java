@@ -46,11 +46,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 String token = authHeader.substring(7);
+                logger.info("JWT 토큰 파싱 시도: " + token); // ✅ 로깅 추가
 
                 if (jwtUtil.isValidAccessToken(token)) {
                     String email = jwtUtil.getEmailFromToken(token);
+                    logger.info("토큰 유효 - 이메일: " + email); // ✅ 로깅 추가
 
                     userRepository.findByEmail(email).ifPresent(user -> {
+                        logger.info("사용자 조회 성공: " + user.getEmail()); // ✅ 로깅 추가
                         // UserDetails로 변환 (User가 UserDetails를 구현했으므로 직접 사용 가능)
                         UsernamePasswordAuthenticationToken authentication =
                                 new UsernamePasswordAuthenticationToken(
@@ -64,11 +67,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         );
 
                         SecurityContextHolder.getContext().setAuthentication(authentication);
+                        logger.info("SecurityContext에 인증 객체 설정 완료"); // ✅ 로깅 추가
                     });
+                }
+                else {
+                    logger.error("토큰 유효성 검사 실패"); // ✅ 로깅 추가
                 }
             }
         } catch (Exception e) {
             logger.error("JWT 인증 오류: ", e);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "인증 실패: " + e.getMessage());
+            return; // ✅ 예외 발생 시 필터 체인 중단
         }
 
         filterChain.doFilter(request, response);

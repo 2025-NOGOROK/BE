@@ -107,6 +107,13 @@ public class AuthService {
                 .build();
     }
 
+    public boolean existsByEmail(String email) {
+        return userRepository.findByEmail(email).isPresent();
+    }
+
+
+
+
     @Transactional
     public void resetPassword(PasswordResetRequest request) {
         User user = userRepository.findByEmail(request.email())
