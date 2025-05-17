@@ -1,9 +1,6 @@
 package com.example.Easeplan.global.auth.controller;
 
-import com.example.Easeplan.global.auth.dto.PasswordResetRequest;
-import com.example.Easeplan.global.auth.dto.SignInRequest;
-import com.example.Easeplan.global.auth.dto.SignUpRequest;
-import com.example.Easeplan.global.auth.dto.TokenResponse;
+import com.example.Easeplan.global.auth.dto.*;
 import com.example.Easeplan.global.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -76,8 +73,8 @@ public class AuthController {
     @Operation(summary = "비밀번호 변경 시 이메일 확인", description = """
             비밀번호를 변경 시 이메일을 조회합니다.""")
     @PostMapping("/checkEmail")
-    public ResponseEntity<CustomResponse<Boolean>> checkEmail(@RequestBody Map<String, String> request) {
-        String email = request.get("email");
+    public ResponseEntity<?> checkEmail(@RequestBody EmailRequest request) {
+        String email = request.getEmail();
         boolean exists = authService.existsByEmail(email);
         String message = exists ? "이메일이 존재합니다." : "일치하는 회원정보가 없습니다.";
         return ResponseEntity.ok(new CustomResponse<>(message, exists));
