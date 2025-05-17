@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-
+@Setter
 @Entity
 @Getter
 @Builder
@@ -27,16 +27,18 @@ public class SmartwatchData {
     private String deviceId;
 
     @Column(nullable = false)
-    private Double stressIndex;  // 0.0 ~ 100.0 스케일 [3][6]
-
-    @Column(nullable = false)
     private LocalDateTime measuredAt;  // 측정 시간
 
-    // 추가 가능한 필드 (선택사항)
+    // 생체 데이터
+    private Float min;
+    private Float max;
+    private Float avg;
+    private Float stress;
     private Integer heartRate;
-    private Double temperature;
+    private Integer totalMinutes;
+    private Float bloodOxygen;
+    private Float skinTemperature;
 
-
+    private String startTime;
+    private String endTime;
 }
-
-

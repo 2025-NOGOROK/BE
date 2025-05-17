@@ -4,6 +4,7 @@ import com.example.Easeplan.api.SmartWatch.domain.SmartwatchData;
 import com.example.Easeplan.api.SmartWatch.dto.SmartwatchRequest;
 import com.example.Easeplan.api.SmartWatch.repository.SmartwatchRepository;
 import com.example.Easeplan.global.auth.domain.User;
+import com.example.Easeplan.global.auth.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,52 +17,69 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SmartwatchService {
     private final SmartwatchRepository smartwatchRepo;
+    private final UserRepository userRepository;
     @Transactional
     public void saveData(SmartwatchRequest request) {
-        // 1. deviceId로 기기 정보 조회 (getDeviceId() → deviceId())
-        SmartwatchData registeredDevice = smartwatchRepo.findFirstByDeviceId(request.deviceId())
-                .orElseThrow(() -> new RuntimeException("등록되지 않은 기기입니다"));
+        // 1. 이메일로 사용자 조회
+        User user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new RuntimeException("존재하지 않는 사용자입니다"));
 
-        // 2. 새 데이터 생성 (getDeviceId() → deviceId())
+        // 2. deviceId로 기기 정보 조회 (기기 등록 여부 확인)
+        // 필요하다면 deviceId 중복 체크 로직 추가
+
+        // 3. 새 데이터 생성
         SmartwatchData newData = SmartwatchData.builder()
-                .user(registeredDevice.getUser())
+                .user(user)
                 .deviceId(request.deviceId())
-                .stressIndex(request.stressIndex())
+                .measuredAt(request.timestamp() != null ? LocalDateTime.parse(request.timestamp()) : LocalDateTime.now())
+                .min(request.min())
+                .max(request.max())
+                .avg(request.avg())
+                .stress(request.stress())
                 .heartRate(request.heartRate())
-                .measuredAt(LocalDateTime.now())
+                .startTime(request.startTime())
+                .endTime(request.endTime())
+                .totalMinutes(request.totalMinutes())
+                .bloodOxygen(request.bloodOxygen())
+                .skinTemperature(request.skinTemperature())
                 .build();
 
         smartwatchRepo.save(newData);
     }
 
-    // 장치 연결 로직
     @Transactional
-    public void connectDevice(User user, SmartwatchRequest request) {
-        validateDuplicateDevice(user, request.deviceId());
+    public void updateDeviceData(User user, SmartwatchRequest request) {
+        // 1. 해당 사용자의 해당 deviceId 데이터 조회 (여기선 가장 최근 데이터만 예시)
+        SmartwatchData data = smartwatchRepo.findFirstByDeviceIdAndUserEmailOrderByMeasuredAtDesc(
+                request.deviceId(), user.getEmail()
+        ).orElseThrow(() -> new RuntimeException("해당 데이터가 없습니다."));
 
-        SmartwatchData data = SmartwatchData.builder()
-                .user(user)
-                .deviceId(request.deviceId())
-                .stressIndex(request.stressIndex())
-                .measuredAt(LocalDateTime.now())
-                .heartRate(request.heartRate())
-                .build();
+        // 2. 데이터 수정
+        if(request.timestamp() != null)
+            data.setMeasuredAt(LocalDateTime.parse(request.timestamp()));
+        if(request.min() != null)
+            data.setMin(request.min());
+        if(request.max() != null)
+            data.setMax(request.max());
+        if(request.avg() != null)
+            data.setAvg(request.avg());
+        if(request.stress() != null)
+            data.setStress(request.stress());
+        if(request.heartRate() != null)
+            data.setHeartRate(request.heartRate());
+        if(request.startTime() != null)
+            data.setStartTime(request.startTime());
+        if(request.endTime() != null)
+            data.setEndTime(request.endTime());
+        if(request.totalMinutes() != null)
+            data.setTotalMinutes(request.totalMinutes());
+        if(request.bloodOxygen() != null)
+            data.setBloodOxygen(request.bloodOxygen());
+        if(request.skinTemperature() != null)
+            data.setSkinTemperature(request.skinTemperature());
 
-        smartwatchRepo.save(data);
+        // JPA의 Dirty Checking에 의해 자동 저장됨 (별도 save 불필요)
     }
 
-    // 중복 장치 검증
-    private void validateDuplicateDevice(User user, String deviceId) {
-        smartwatchRepo.findByUserEmail(user.getEmail()).stream()
-                .filter(data -> data.getDeviceId().equals(deviceId))
-                .findAny()
-                .ifPresent(data -> {
-                    throw new IllegalStateException("이미 등록된 기기입니다");
-                });
-    }
 
-    @Transactional
-    public List<SmartwatchData> getDeviceData(User user) {
-        return smartwatchRepo.findByUserEmail(user.getEmail());
-    }
 }
