@@ -30,7 +30,6 @@ public class SmartwatchService {
         // 3. 새 데이터 생성
         SmartwatchData newData = SmartwatchData.builder()
                 .user(user)
-                .deviceId(request.deviceId())
                 .measuredAt(request.timestamp() != null ? LocalDateTime.parse(request.timestamp()) : LocalDateTime.now())
                 .min(request.min())
                 .max(request.max())
@@ -50,8 +49,8 @@ public class SmartwatchService {
     @Transactional
     public void updateDeviceData(User user, SmartwatchRequest request) {
         // 1. 해당 사용자의 해당 deviceId 데이터 조회 (여기선 가장 최근 데이터만 예시)
-        SmartwatchData data = smartwatchRepo.findFirstByDeviceIdAndUserEmailOrderByMeasuredAtDesc(
-                request.deviceId(), user.getEmail()
+        SmartwatchData data = smartwatchRepo.findByUserEmailOrderByMeasuredAtDesc(
+                 user.getEmail()
         ).orElseThrow(() -> new RuntimeException("해당 데이터가 없습니다."));
 
         // 2. 데이터 수정

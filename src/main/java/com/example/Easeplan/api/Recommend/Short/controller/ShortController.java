@@ -218,7 +218,6 @@ public class ShortController {
                         end.toStringRfc3339(),
                         false,  // serverAlarm
                         0,      // minutesBeforeAlarm
-                        true,   // aiRecommend (추천 일정임을 표시)
                         false,  // fixed
                         false   // userLabel
                 );

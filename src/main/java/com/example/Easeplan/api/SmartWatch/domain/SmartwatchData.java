@@ -23,8 +23,7 @@ public class SmartwatchData {
     @JoinColumn(name = "user_email", referencedColumnName = "email")
     private User user;
 
-    @Column(nullable = false)
-    private String deviceId;
+
 
     @Column(nullable = false)
     private LocalDateTime measuredAt;  // 측정 시간

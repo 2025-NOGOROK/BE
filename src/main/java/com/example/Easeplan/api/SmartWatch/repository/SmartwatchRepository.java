@@ -10,6 +10,6 @@ import java.util.Optional;
 
 public interface SmartwatchRepository extends JpaRepository<SmartwatchData, Long> {
 
+    Optional<SmartwatchData> findByUserEmailOrderByMeasuredAtDesc(String email);
 
-    Optional<SmartwatchData> findFirstByDeviceIdAndUserEmailOrderByMeasuredAtDesc(String deviceId, String email);
 }

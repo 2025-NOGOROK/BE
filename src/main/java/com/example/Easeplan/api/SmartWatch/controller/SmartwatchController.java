@@ -32,7 +32,6 @@ public class SmartwatchController {
         <pre>
 {
   "email": "user@example.com",
-  "deviceId": "galaxy-watch-1234",
   "timestamp": "2025-05-18T14:30:45",
   "min": 60.0,
   "max": 120.0,
@@ -49,7 +48,6 @@ public class SmartwatchController {
         
         <b>필드 설명:</b>
         - email: 사용자 이메일 <b>[필수]</b><br>
-        - deviceId: 기기 식별자 <b>[필수]</b><br>
         - timestamp: 측정 시각 (ISO 8601 문자열) <b>[선택, 미입력시 서버시간]</b><br>
         - min, max, avg: 측정값(예: 심박수 등) <b>[선택]</b><br>
         - stress: 스트레스 지수 <b>[선택]</b><br>

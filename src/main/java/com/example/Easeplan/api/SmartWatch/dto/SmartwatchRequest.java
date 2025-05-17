@@ -5,7 +5,7 @@ import lombok.Builder;
 @Builder
 public record SmartwatchRequest(
         String email,
-        String deviceId,
+
         String timestamp,   // 측정 시각 (String 또는 LocalDateTime)
         Float min,
         Float max,
