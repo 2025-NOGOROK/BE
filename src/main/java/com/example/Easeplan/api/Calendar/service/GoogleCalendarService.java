@@ -1,5 +1,6 @@
 package com.example.Easeplan.api.Calendar.service;
 
+import com.example.Easeplan.api.Calendar.domain.GoogleCalendarInfo;
 import com.example.Easeplan.api.Calendar.dto.TimeSlot;
 import com.example.Easeplan.api.Calendar.dto.FormattedTimeSlot;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
@@ -13,6 +14,7 @@ import com.google.api.services.calendar.model.*;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -33,6 +35,8 @@ public class GoogleCalendarService {
 
     @Value("${google.client-secret}")
     private String clientSecret;
+
+
 
     public Calendar getCalendarService( String accessToken, String refreshToken) throws Exception {
         GoogleClientSecrets clientSecrets = new GoogleClientSecrets()
@@ -204,7 +208,6 @@ public class GoogleCalendarService {
             String endDateTime,
             boolean serverAlarm,
             int minutesBeforeAlarm, // <-- 추가!
-            boolean aiRecommend,
             boolean fixed,
             boolean userLabel
     ) throws Exception {
@@ -224,7 +227,6 @@ public class GoogleCalendarService {
         Map<String, String> customProps = new HashMap<>();
         customProps.put("serverAlarm", String.valueOf(serverAlarm));
         customProps.put("minutesBeforeAlarm", String.valueOf(minutesBeforeAlarm));
-        customProps.put("aiRecommend", String.valueOf(aiRecommend));
         customProps.put("fixed", String.valueOf(fixed));
         customProps.put("userLabel", String.valueOf(userLabel));
         event.setExtendedProperties(new Event.ExtendedProperties().setPrivate(customProps));
@@ -254,4 +256,6 @@ public class GoogleCalendarService {
         Calendar service = getCalendarService(accessToken, refreshToken); // ✅ refreshToken 전달
         service.events().delete(calendarId, eventId).execute();
     }
+
+
 }

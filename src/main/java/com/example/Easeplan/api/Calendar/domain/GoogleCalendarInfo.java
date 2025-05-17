@@ -29,7 +29,9 @@ public class GoogleCalendarInfo {
     // 새로 추가된 필드
     private boolean serverAlarm;
     private int minutesBeforeAlarm;
-    private boolean aiRecommend;
     private boolean fixed;
     private boolean userLabel;
+
+
 }
+

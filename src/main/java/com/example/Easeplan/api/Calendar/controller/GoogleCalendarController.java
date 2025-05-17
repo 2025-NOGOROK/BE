@@ -245,7 +245,6 @@ public class GoogleCalendarController {
                 req.endDateTime,
                 req.serverAlarm,
                 req.minutesBeforeAlarm,
-                req.aiRecommend,
                 req.fixed,
                 req.userLabel
         );
