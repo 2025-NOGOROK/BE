@@ -10,6 +10,7 @@ import com.example.Easeplan.global.auth.repository.UserRepository;
 import com.google.api.services.calendar.model.Event;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
@@ -18,10 +19,14 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import com.google.api.services.calendar.model.Events;
+@Slf4j
 @Tag(name = "GoogleCalendar", description = "구글캘린더 API")
 @RestController
 @RequestMapping("/auth/google")
@@ -153,17 +158,34 @@ public class GoogleCalendarController {
                 req.userLabel
         );
         // 1. 서버 알림을 사용한다면
-        if (req.serverAlarm) {
-            // 2. 알림 보낼 시각 계산 (일정 시작 - minutesBeforeAlarm)
-            java.time.ZonedDateTime eventStart = java.time.ZonedDateTime.parse(req.startDateTime);
-            java.time.Instant alarmTime = eventStart.minusMinutes(req.minutesBeforeAlarm).toInstant();
+        // 3. 알림 스케줄링 (서버 알림 활성화 시)
+        if (req.serverAlarm && req.minutesBeforeAlarm > 0) {
+            // 시간대 변환 (UTC → KST)
+            ZonedDateTime eventStart = ZonedDateTime.parse(req.startDateTime)
+                    .withZoneSameInstant(ZoneId.of("Asia/Seoul"));
 
-            // 3. FCM 토큰, 알림 제목/내용은 필요에 맞게 세팅
-            String userFcmToken = "사용자_FCM_토큰"; // 실제로는 DB 등에서 조회
-            String title = req.title;
-            String body = req.description;
+            // 알림 시간 계산
+            Instant alarmTime = eventStart
+                    .minusMinutes(req.minutesBeforeAlarm)
+                    .toInstant();
 
-            notificationScheduler.scheduleAlarm(userFcmToken, title, body, alarmTime);
+            // 4. 모든 기기에 알림 전송
+            user.getFcmTokens().forEach(token -> {
+                try {
+                    notificationScheduler.scheduleAlarm(
+                            token,
+                            "🔔 " + req.title,
+                            req.minutesBeforeAlarm + "분 후 일정 시작!",
+                            alarmTime
+                    );
+                } catch (Exception e) {
+                    // 실패한 토큰 제거
+                    user.removeFcmToken(token);
+                    log.error("FCM 전송 실패: {}", e.getMessage());
+                }
+            });
+
+            userRepository.save(user); // 토큰 상태 저장
         }
 
         return ResponseEntity.ok(created);

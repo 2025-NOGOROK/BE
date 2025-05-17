@@ -43,23 +43,29 @@ public class UserSurveyController {
     private final ScenarioStorage scenarioStorage;
 
     // 1. 설문 저장
-    @Operation(summary = "설문 저장", description = "설문조사 응답을 저장합니다.")
+    @Operation(summary = "설문 저장", description = "토큰 없이 설문조사 응답을 저장합니다.")
     @PostMapping
     public ResponseEntity<?> submitSurvey(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody UserSurveyRequest request
+            @RequestBody UserSurveyRequest request // 🔥 인증 없이 요청 받음
     ) {
-        if (userDetails == null) {
-            return ResponseEntity.status(401).body("인증 정보가 없습니다.");
+        try {
+            // 1. 이메일로 사용자 조회
+            User user = userRepository.findByEmail(request.getEmail())
+                    .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없음"));
+
+            // 2. 설문 저장
+            surveyService.saveSurvey(user, request);
+
+            return ResponseEntity.ok().build();
+
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
         }
-        User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없음"));
-        surveyService.saveSurvey(user, request);
-        return ResponseEntity.ok().build();
     }
 
+
     // 2. 시나리오 생성 (구글 일정, 설문 추천 일정, 스트레스 추천 일정)
-    @Operation(summary = "시나리오 생성", description = "3가지 일정 시나리오를 생성합니다.")
+    @Operation(summary = " 긴 추천 시나리오 생성", description = "3가지 일정 시나리오를 생성합니다.(아직 개발중)")
     @PostMapping("/scenarios")
     public ResponseEntity<ScenarioResponse> generateScenarios(
             @AuthenticationPrincipal UserDetails userDetails,

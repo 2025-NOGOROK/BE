@@ -9,6 +9,7 @@ import java.util.List;
 @Getter
 @AllArgsConstructor
 public class UserSurveyRequest {
+    private String email; // 사용자 식별 이메일
     private String scheduleType;
     private Boolean suddenChangePreferred;
     private String chronotype;
@@ -17,9 +18,10 @@ public class UserSurveyRequest {
     private Boolean hasStressRelief;
     private List<String> stressReliefMethods;
 
-    // ✅ static 메서드로 변경 + Lombok @AllArgsConstructor와 호환되도록 수정
+    // UserSurvey → UserSurveyRequest 변환
     public static UserSurveyRequest fromEntity(UserSurvey survey) {
         return new UserSurveyRequest(
+                survey.getUser().getEmail(), // User 연관관계에서 email 추출
                 survey.getScheduleType(),
                 survey.getSuddenChangePreferred(),
                 survey.getChronotype(),

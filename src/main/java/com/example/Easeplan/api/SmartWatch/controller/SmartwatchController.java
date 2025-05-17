@@ -25,22 +25,19 @@ public class SmartwatchController {
     private final SmartwatchService smartwatchService;
 
     // 갤럭시 워치 등록
-    @Operation(summary = "스마트 워치 등록", description = """
-            스마트 워치를 등록합니다.<br>
-            헤더에 accessToken을 넣어주세요.<br>
-            """)
-    @PostMapping("/smartwatch")
-    public ResponseEntity<?> connectSmartwatch(
-            @AuthenticationPrincipal User user,
-            @RequestBody @Valid SmartwatchRequest request
-    ) {
+// SmartwatchController.java
+    @Operation(summary = "스마트워치 데이터 전송", description = "토큰 없이 데이터를 저장합니다.")
+    @PostMapping("/data")
+    public ResponseEntity<?> submitData(@RequestBody @Valid SmartwatchRequest request) {
         try {
-            smartwatchService.connectDevice(user, request);
-            return ResponseEntity.ok().body("기기 연결 성공");
-        } catch (IllegalStateException e) {
+            smartwatchService.saveData(request); // 변경된 메서드 호출
+            return ResponseEntity.ok("데이터 저장 성공");
+        } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
+
 
     // 기기 데이터 조회
     @Operation(summary = "스마트 워치 조회", description = """

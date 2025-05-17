@@ -16,6 +16,24 @@ import java.util.List;
 @RequiredArgsConstructor
 public class SmartwatchService {
     private final SmartwatchRepository smartwatchRepo;
+    @Transactional
+    public void saveData(SmartwatchRequest request) {
+        // 1. deviceId로 기기 정보 조회 (getDeviceId() → deviceId())
+        SmartwatchData registeredDevice = smartwatchRepo.findFirstByDeviceId(request.deviceId())
+                .orElseThrow(() -> new RuntimeException("등록되지 않은 기기입니다"));
+
+        // 2. 새 데이터 생성 (getDeviceId() → deviceId())
+        SmartwatchData newData = SmartwatchData.builder()
+                .user(registeredDevice.getUser())
+                .deviceId(request.deviceId())
+                .stressIndex(request.stressIndex())
+                .heartRate(request.heartRate())
+                .temperature(request.temperature())
+                .measuredAt(LocalDateTime.now())
+                .build();
+
+        smartwatchRepo.save(newData);
+    }
 
     // 장치 연결 로직
     @Transactional
