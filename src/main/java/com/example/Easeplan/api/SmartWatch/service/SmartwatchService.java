@@ -28,7 +28,6 @@ public class SmartwatchService {
                 .deviceId(request.deviceId())
                 .stressIndex(request.stressIndex())
                 .heartRate(request.heartRate())
-                .temperature(request.temperature())
                 .measuredAt(LocalDateTime.now())
                 .build();
 
@@ -46,7 +45,6 @@ public class SmartwatchService {
                 .stressIndex(request.stressIndex())
                 .measuredAt(LocalDateTime.now())
                 .heartRate(request.heartRate())
-                .temperature(request.temperature())
                 .build();
 
         smartwatchRepo.save(data);

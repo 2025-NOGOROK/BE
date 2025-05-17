@@ -38,10 +38,31 @@ public class MyPageController {
     private final MyPageService myPageService; // 추가
     // 설문 정보 수정
 
-    @Operation(summary = "생활패턴 수정", description = """
-            생활패턴을 수정합니다.<br>
-            헤더에 accessToken을 넣어주세요.<br>
-            """)
+    @Operation(
+            summary = "생활패턴 설문 수정",
+            description = """
+            사용자의 생활패턴 설문 데이터를 업데이트합니다.<br>
+            <b>헤더에 accessToken을 포함해야 합니다.</b><br><br>
+            
+            <b>요청 본문 예시:</b>
+            <pre>
+{
+  "scheduleType": "타이트",
+  "suddenChangePreferred": true,
+  "chronotype": "저녁",
+  "preferAlone": "혼자",
+  "stressReaction": "감각 회피형",
+  "hasStressRelief": true,
+  "stressReliefMethods": ["명상", "요가"]
+}
+            </pre>
+            
+            <b>응답:</b>
+            - 200 OK: 수정 성공
+            - 400 Bad Request: 유효하지 않은 데이터
+            - 401 Unauthorized: 인증 실패
+            """
+    )
     @PutMapping("/survey")
     public void updateSurvey(
             @AuthenticationPrincipal User user,
@@ -53,10 +74,27 @@ public class MyPageController {
 
 
     // 스마트워치 연동
-    @Operation(summary = "스마트 워치 변경", description = """
-            스마트 워치내용을 변경합니다.<br>
-            헤더에 accessToken을 넣어주세요.<br>
-            """)
+    @Operation(
+            summary = "스마트워치 재연결",
+            description = """
+            새로운 스마트워치를 등록하거나 기존 연결을 업데이트합니다.<br>
+            <b>헤더에 accessToken을 포함해야 합니다.</b><br><br>
+            
+            <b>요청 본문 예시:</b>
+            <pre>
+{
+  "deviceId": "galaxy-watch-5678",
+  "stressIndex": 68.2,
+  "heartRate": 78
+}
+            </pre>
+            
+            <b>응답:</b>
+            - 200 OK: 연결 성공
+            - 400 Bad Request: 유효하지 않은 데이터
+            - 401 Unauthorized: 인증 실패
+            """
+    )
     @PostMapping("/smartwatch")
     public void connectSmartwatch(
             @AuthenticationPrincipal User user,

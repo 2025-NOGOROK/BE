@@ -45,8 +45,34 @@ public class GoogleCalendarController {
     }
 
     // 구글 인증 콜백 (authorization code 수신)
-    @Operation(summary = "구글 캘린더 인증 callback", description = """ 
-            인증을 통해 구글캘린더를 연동합니다.""")
+    @Operation(
+            summary = "구글 캘린더 인증 callback",
+            description = """
+        구글 OAuth2 인증 후(URL) authorization code를 받아 accessToken/refreshToken을 발급받고,
+        해당 사용자의 계정에 구글 캘린더 연동 정보를 저장합니다.<br><br>
+        <b>요청 예시:</b><br>
+        <code>GET /auth/google/callback?code=인증코드</code><br><br>
+        <b>동작:</b><br>
+        1. 인증 코드(code)를 받아 구글 OAuth 서버에서 accessToken, refreshToken을 발급받습니다.<br>
+        2. accessToken으로 구글 사용자 정보를 조회하여 이메일을 확인합니다.<br>
+        3. 해당 이메일로 가입된 사용자의 DB에 토큰 정보를 저장합니다.<br>
+        4. 토큰 정보(accessToken, refreshToken, 만료 시간 등)를 응답으로 반환합니다.<br>
+        <br>
+        <b>응답 예시:</b><br>
+        <pre>
+{
+  "access_token": "ya29.a0AbV...",
+  "refresh_token": "1//0ejh...",
+  "expires_in": 3599,
+  ...
+}
+        </pre>
+        <b>에러:</b><br>
+        - 400: 토큰 발급 실패, 이메일 조회 실패 등<br>
+        - 500: 서버 내부 오류
+        """
+    )
+
     @GetMapping("/callback")
     public ResponseEntity<?> oauth2Callback(@RequestParam String code) {
         try {
@@ -76,10 +102,39 @@ public class GoogleCalendarController {
     }
 
     // 일정 조회 (헤더에서 토큰 추출)
-    @Operation(summary = "구글캘린더 조회", description = """
-            구글 캘린더를 조회합니다.<br>
-            헤더에 accessToken을 넣어주세요.<br>
-            """)
+    @Operation(
+            summary = "구글캘린더 일정 조회",
+            description = """
+        사용자의 구글 캘린더에서 지정한 기간의 일정을 조회합니다.<br>
+        <b>헤더에 Authorization: Bearer {accessToken}을(구글 OAuth에서 받은) 반드시 포함해야 합니다.</b><br><br>
+        <b>요청 파라미터:</b><br>
+        - calendarId: 캘린더 ID (기본값: primary)<br>
+        - timeMin: 조회 시작 시간 (ISO 8601, 예: 2025-05-31T00:00:00+09:00)<br>
+        - timeMax: 조회 종료 시간 (ISO 8601, 예: 2025-05-31T23:59:59+09:00)<br>
+        <br>
+        <b>동작:</b><br>
+        1. accessToken과 refreshToken으로 구글 캘린더 API에서 일정을 조회합니다.<br>
+        2. 해당 기간 내의 모든 일정을 반환합니다.<br>
+        <br>
+        <b>응답 예시:</b><br>
+        <pre>
+{
+  "items": [
+    {
+      "id": "abcd1234",
+      "summary": "회의",
+      "start": {"dateTime": "2025-05-31T10:00:00+09:00"},
+      "end": {"dateTime": "2025-05-31T11:00:00+09:00"}
+    },
+    ...
+  ]
+}
+        </pre>
+        <b>에러:</b><br>
+        - 401: 인증 실패(토큰 만료/누락)<br>
+        - 400: 파라미터 오류<br>
+        """
+    )
     @GetMapping("/events")
     public Events getEvents(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -125,10 +180,47 @@ public class GoogleCalendarController {
     private String clientSecret;
 
     // 일정 추가 (예시: accessToken이 필요하면 마찬가지로 헤더에서 추출)
-    @Operation(summary = "구글캘린더에 일정을 추가", description = """
-            특정 날에 구글 캘린더에 일정을 추가합니다.<br>
-            헤더에 accessToken을 넣어주세요.<br>
-            """)
+    @Operation(
+            summary = "구글캘린더 일정 추가",
+            description = """
+        사용자의 구글 캘린더에 새 일정을 추가합니다.<br>
+        <b>헤더에 Authorization: Bearer {accessToken}을(구글 OAuth에서 받은) 반드시 포함해야 합니다.</b><br><br>
+        <b>요청 본문 예시 (CalendarEventRequest):</b>
+        <pre>
+{
+  "calendarId": "primary",
+  "title": "회의",
+  "description": "팀 미팅",
+  "startDateTime": "2025-05-18T14:00:00+09:00",
+  "endDateTime": "2025-05-18T15:00:00+09:00",
+  "serverAlarm": true,
+  "minutesBeforeAlarm": 10,
+  "aiRecommend": false,
+  "fixed": false,
+  "userLabel": true
+}
+        </pre>
+        <b>동작:</b><br>
+        1. 구글 캘린더에 일정을 추가합니다.<br>
+        2. serverAlarm=true이고 minutesBeforeAlarm>0이면, 일정 시작 N분 전에 FCM 푸시 알림을 예약합니다.<br>
+        3. 알림 예약 실패 시 해당 FCM 토큰은 DB에서 제거됩니다.<br>
+        <br>
+        <b>응답 예시:</b><br>
+        <pre>
+{
+  "id": "abcd1234",
+  "summary": "회의",
+  "start": {"dateTime": "2025-05-18T14:00:00+09:00"},
+  "end": {"dateTime": "2025-05-18T15:00:00+09:00"}
+}
+        </pre>
+        <b>에러:</b><br>
+        - 401: 인증 실패(토큰 만료/누락)<br>
+        - 400: 파라미터 오류<br>
+        - 500: 서버 내부 오류
+        """
+    )
+
     @PostMapping("/eventsPlus")
     public ResponseEntity<Event> addEvent(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
@@ -192,10 +284,27 @@ public class GoogleCalendarController {
     }
 
     //일정 삭제
-    @Operation(summary = "구글캘린더에 일정을 삭제", description = """
-            특정 날에 구글 캘린더에 일정을 삭제합니다.<br>
-            헤더에 accessToken을 넣어주세요.<br>
-            """)
+    @Operation(
+            summary = "구글캘린더 일정 삭제",
+            description = """
+        사용자의 구글 캘린더에서 일정을 삭제합니다.<br>
+        <b>헤더에 Authorization: Bearer {accessToken}을(구글 OAuth에서 받은) 반드시 포함해야 합니다.</b><br><br>
+        <b>요청 파라미터:</b><br>
+        - calendarId: 캘린더 ID (기본값: primary)<br>
+        - eventId: 삭제할 일정의 고유 ID<br>
+        <br>
+        <b>동작:</b><br>
+        1. 구글 캘린더에서 해당 일정을 삭제합니다.<br>
+        <br>
+        <b>응답:</b><br>
+        - 204 No Content: 삭제 성공<br>
+        <b>에러:</b><br>
+        - 401: 인증 실패(토큰 만료/누락)<br>
+        - 400: 파라미터 오류<br>
+        - 404: 해당 일정 없음
+        """
+    )
+
     @DeleteMapping("/eventsPlus")
     public ResponseEntity<Void> deleteEvent(
             @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,

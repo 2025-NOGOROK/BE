@@ -5,6 +5,6 @@ import jakarta.validation.constraints.*;
 public record SmartwatchRequest(
         String deviceId,
         Double stressIndex, // ✅
-        Integer heartRate,  // ✅
-        Double temperature
+        Integer heartRate  // ✅
+
 ) {}
