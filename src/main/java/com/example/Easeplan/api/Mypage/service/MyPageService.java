@@ -43,7 +43,6 @@ public class MyPageService {
     public void connectDevice(User user, SmartwatchRequest request) {
         SmartwatchData data = SmartwatchData.builder() // ✅ 엔티티 변환
                 .user(user)
-                .deviceId(request.deviceId())
                 .build();
         smartwatchRepo.save(data);
     }
