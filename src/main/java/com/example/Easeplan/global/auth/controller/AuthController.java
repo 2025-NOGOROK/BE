@@ -92,17 +92,15 @@ public class AuthController {
     )
     @PostMapping("/signUp")
     public ResponseEntity<CustomResponse<TokenResponse>> signUp(@RequestBody SignUpRequest request) {
-        authService.signUp(request); // 이메일이 DB에 저장됨
         try {
-            TokenResponse response = authService.signUp(request);
-            return ResponseEntity.status(HttpStatus.CREATED).body(
-                    new CustomResponse<>("회원가입 및 로그인에 성공했습니다.", response)
-            );
+            TokenResponse response = authService.signUp(request); // 1번만 호출
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(new CustomResponse<>("회원가입 및 로그인에 성공했습니다.", response));
         } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                    new CustomResponse<>(e.getMessage(), null)
-            );
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(new CustomResponse<>(e.getMessage(), null));
         }
+
     }
     @Operation(summary = "로그인", description = """
             로그인을 진행합니다.""")
