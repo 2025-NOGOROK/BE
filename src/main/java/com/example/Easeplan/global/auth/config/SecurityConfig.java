@@ -44,8 +44,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/swagger-resources/**",
-                                "/webjars/**").permitAll()
-                        .requestMatchers("/api/survey/**","/api/haru/**","/api/fcm/**","/api/mypage/**","/api/devices/**").authenticated()
+                                "/webjars/**","/api/survey","/api/devices/data","/api/fcm/send").permitAll()
+                        .requestMatchers("/api/survey/select","/api/survey/scenarios","/short-recommend/**","/api/haru/**","/api/fcm/**","/api/mypage/**","/api/devices/smartwatch","/api/fcm/register").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
