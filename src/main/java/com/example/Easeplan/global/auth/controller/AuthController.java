@@ -41,8 +41,55 @@ public class AuthController {
         public T getData() { return data; }
     }
 
-    @Operation(summary = "회원가입", description = """ 
-            회원가입을 진행합니다.""")
+    @Operation(
+            summary = "회원가입",
+            description = """
+        새로운 사용자를 등록합니다. 모든 필수 필드를 정확히 입력해야 하며 약관 동의는 모두 필수입니다.<br><br>
+        
+        <b>요청 본문 예시:</b>
+        <pre>
+{
+  "name": "홍길동",
+  "birth": "1990-01-01",
+  "gender": "M",
+  "password": "TestPassword123!",
+  "email": "user@example.com",
+  "confirmPassword": "TestPassword123!",
+  "pushNotificationAgreed": true,
+  "deviceToken": "fcm_token_1234",
+  "termsOfServiceAgreed": true,
+  "privacyPolicyAgreed": true,
+  "healthInfoPolicyAgreed": true,
+  "locationPolicyAgreed": true
+}
+        </pre>
+
+        <b>필드 설명:</b>
+        - name: 사용자 이름 (2~20자 한글/영문) <b>[필수]</b><br>
+        - birth: 생년월일 (YYYY-MM-DD 형식) <b>[필수]</b><br>
+        - gender: 성별 (M: 남성, F: 여성, null 허용) <b>[선택]</b><br>
+        - password: 비밀번호 (8~20자, 영문+숫자+특수문자 조합) <b>[필수]</b><br>
+        - email: 이메일 (유효한 이메일 형식) <b>[필수]</b><br>
+        - confirmPassword: 비밀번호 확인 (password와 일치해야 함) <b>[필수]</b><br>
+        - pushNotificationAgreed: 푸시 알림 동의 여부 <b>[필수]</b><br>
+        - deviceToken: FCM 디바이스 토큰 (pushNotificationAgreed=true 시 필수)<br>
+        - termsOfServiceAgreed: 이용약관 동의 <b>[필수]</b><br>
+        - privacyPolicyAgreed: 개인정보 처리 방침 동의 <b>[필수]</b><br>
+        - healthInfoAgreed: 건강정보 수집 동의 <b>[필수]</b><br>
+        - locationPolicyAgreed: 위치기반 서비스 동의 <b>[필수]</b>
+
+        <b>유효성 검사:</b>
+        1. password와 confirmPassword는 반드시 일치해야 함
+        2. 모든 약관 동의(terms~) 필드는 true여야 함
+        3. pushNotificationAgreed=true인 경우 deviceToken 필수
+        4. 이메일 중복 불가
+
+        <b>응답:</b>
+        - 201 Created: 회원가입 성공 (JWT 토큰 반환)
+        - 400 Bad Request: 유효성 검사 실패
+        - 409 Conflict: 이메일 중복
+        """
+    )
     @PostMapping("/signUp")
     public ResponseEntity<CustomResponse<TokenResponse>> signUp(@RequestBody SignUpRequest request) {
         authService.signUp(request); // 이메일이 DB에 저장됨
