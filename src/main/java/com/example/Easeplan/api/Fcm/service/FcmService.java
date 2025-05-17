@@ -7,9 +7,22 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class FcmService {
-    public String sendMessage(String targetToken, String title, String body) throws Exception {
+    public String sendMessage(String token, String title, String body) throws Exception {
         Message message = Message.builder()
-                .setToken(targetToken)
+                .setToken(token)
+                .setNotification(Notification.builder()
+                        .setTitle(title)
+                        .setBody(body)
+                        .build())
+                .build();
+
+        return FirebaseMessaging.getInstance().send(message);
+    }
+
+    // 토픽으로 알림 전송
+    public String sendToTopic(String topic, String title, String body) throws Exception {
+        Message message = Message.builder()
+                .setTopic(topic)
                 .setNotification(Notification.builder()
                         .setTitle(title)
                         .setBody(body)
