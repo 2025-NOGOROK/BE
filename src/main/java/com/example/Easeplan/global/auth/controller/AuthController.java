@@ -45,6 +45,7 @@ public class AuthController {
             회원가입을 진행합니다.""")
     @PostMapping("/signUp")
     public ResponseEntity<CustomResponse<TokenResponse>> signUp(@RequestBody SignUpRequest request) {
+        authService.signUp(request); // 이메일이 DB에 저장됨
         try {
             TokenResponse response = authService.signUp(request);
             return ResponseEntity.status(HttpStatus.CREATED).body(
