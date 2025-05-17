@@ -121,4 +121,20 @@ public class User extends BaseEntity implements UserDetails {
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
     private List<SmartwatchData> smartwatchData = new ArrayList<>();
+
+
+    @ElementCollection
+    @CollectionTable(name = "user_fcm_tokens", joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "token")
+    private List<String> fcmTokens = new ArrayList<>();
+
+    public void addFcmToken(String token) {
+        if (!fcmTokens.contains(token)) {
+            fcmTokens.add(token);
+        }
+    }
+
+    public void removeFcmToken(String token) {
+        fcmTokens.remove(token);
+    }
 }
