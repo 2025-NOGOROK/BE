@@ -6,29 +6,36 @@ import com.google.firebase.FirebaseOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.scheduling.annotation.EnableScheduling;
-
 import javax.annotation.PostConstruct;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 
-@EnableScheduling
 @Configuration
 public class FirebaseConfig {
 
-    @Value("${firebase.keyPath}")
+    @Value("${firebase.key-path}")
     private String keyPath;
+
     @PostConstruct
-    public void initialize() throws IOException {
-        InputStream serviceAccount = getClass().getClassLoader().getResourceAsStream(keyPath);
+    public void init() throws IOException {
+        // 1. ClassPathResource로 classpath 기준으로 파일 접근 (JAR/로컬 모두 안전)
+        ClassPathResource resource = new ClassPathResource(keyPath);
 
-        FirebaseOptions options = FirebaseOptions.builder()
-                .setCredentials(GoogleCredentials.fromStream(serviceAccount))
-                .build();
+        // 2. 파일 존재 여부 체크
+        if (!resource.exists()) {
+            throw new NullPointerException("service account is null: " + keyPath);
+        }
 
-        if (FirebaseApp.getApps().isEmpty()) {
-            FirebaseApp.initializeApp(options);
+        // 3. InputStream으로 파일 읽기
+        try (InputStream serviceAccount = resource.getInputStream()) {
+            FirebaseOptions options = FirebaseOptions.builder()
+                    .setCredentials(GoogleCredentials.fromStream(serviceAccount))
+                    .build();
+
+            // 4. 중복 초기화 방지
+            if (FirebaseApp.getApps().isEmpty()) {
+                FirebaseApp.initializeApp(options);
+            }
         }
     }
 }
