@@ -72,6 +72,11 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+// build.gradle 하단에 추가
+
+tasks.named('processResources') {
+	duplicatesStrategy = DuplicatesStrategy.INCLUDE
+}
 
 
 //apply plugin: 'application'
