@@ -39,5 +39,5 @@ out/
 ### yml ###
 src/main/resources/application.yml
 .env
-src/main/resources/firebase
+
 .gradle/
