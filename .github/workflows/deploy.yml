@@ -22,12 +22,13 @@ jobs:
         run: echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./src/main/resources/application.yml
 
       # 🔥 Firebase 서비스 계정 키 생성 (추가된 부분)
-      - name: Make Firebase Service Account Key
+      - name: Generate Firebase Key
         run: |
           mkdir -p ./src/main/resources/firebase
-          echo -n "$ACCOUNT_KEY" | base64 -di > ./src/main/resources/firebase/serviceAccountKey.json
+          printf "%s" "$ACCOUNT_KEY" | base64 -d > ./src/main/resources/firebase/serviceAccountKey.json
         env:
           ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
+
 
 
 
