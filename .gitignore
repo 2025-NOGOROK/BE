@@ -42,3 +42,4 @@ src/main/resources/application.yml
 src/main/resources/firebase/serviceAccountKey.json
 
 .gradle/
+src/main/resources/firebase/serviceAccountKey.json
