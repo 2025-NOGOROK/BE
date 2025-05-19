@@ -43,7 +43,7 @@ public class SecurityConfig {
                                 "/error/**","/api/naver/**","/api/culture/events","/api/tour/location","/auth/google/eventsPlus",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/swagger-resources/**",
+                                "/swagger-resources/**","/favicon.ico",
                                 "/webjars/**","/api/survey","/api/devices/data","/api/fcm/send").permitAll()
                         .requestMatchers("/api/survey/select","/api/survey/scenarios","/short-recommend/**","/api/haru/**","/api/fcm/**","/api/mypage/**","/api/devices/smartwatch","/api/fcm/register").authenticated()
                         .anyRequest().authenticated())
