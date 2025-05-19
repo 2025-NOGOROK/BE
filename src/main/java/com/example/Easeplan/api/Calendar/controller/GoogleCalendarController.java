@@ -19,6 +19,8 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -76,7 +78,8 @@ public class GoogleCalendarController {
     @GetMapping("/callback")
     public ResponseEntity<?> oauth2Callback(@RequestParam String code) {
         try {
-            Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(code);
+            String decodedCode = URLDecoder.decode(code, StandardCharsets.UTF_8); // ✅ 디코딩 추가
+            Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(decodedCode);
             String accessToken = (String) tokenResponse.get("access_token");
             if (accessToken == null) {
                 return ResponseEntity.status(400).body("토큰 발급 실패: access_token이 없습니다.");
