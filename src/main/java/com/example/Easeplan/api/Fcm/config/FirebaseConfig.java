@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import javax.annotation.PostConstruct;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 
@@ -18,24 +19,22 @@ public class FirebaseConfig {
 
     @PostConstruct
     public void init() throws IOException {
-        // 1. ClassPathResource로 classpath 기준으로 파일 접근 (JAR/로컬 모두 안전)
         ClassPathResource resource = new ClassPathResource(keyPath);
 
-        // 2. 파일 존재 여부 체크
         if (!resource.exists()) {
-            throw new NullPointerException("service account is null: " + keyPath);
+            throw new FileNotFoundException("파일 없음: " + keyPath);
         }
 
-        // 3. InputStream으로 파일 읽기
         try (InputStream serviceAccount = resource.getInputStream()) {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
 
-            // 4. 중복 초기화 방지
-            if (FirebaseApp.getApps().isEmpty()) {
-                FirebaseApp.initializeApp(options);
+            // 🔥 명시적 앱 이름 지정 + 중복 초기화 방지
+            if (FirebaseApp.getApps().stream().noneMatch(app -> app.getName().equals("easeplan"))) {
+                FirebaseApp.initializeApp(options, "easeplan");
             }
         }
     }
 }
+
