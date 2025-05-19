@@ -1,7 +1,7 @@
 package com.example.Easeplan.api.SmartWatch.service;
 
-import com.example.Easeplan.api.SmartWatch.domain.SmartwatchData;
-import com.example.Easeplan.api.SmartWatch.dto.SmartwatchRequest;
+import com.example.Easeplan.api.SmartWatch.domain.HeartRate;
+import com.example.Easeplan.api.SmartWatch.dto.HeartRateRequest;
 import com.example.Easeplan.api.SmartWatch.repository.SmartwatchRepository;
 import com.example.Easeplan.global.auth.domain.User;
 import com.example.Easeplan.global.auth.repository.UserRepository;
@@ -10,7 +10,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
 
 
 @Service
@@ -18,67 +17,53 @@ import java.util.List;
 public class SmartwatchService {
     private final SmartwatchRepository smartwatchRepo;
     private final UserRepository userRepository;
+
     @Transactional
-    public void saveData(SmartwatchRequest request) {
-        // 1. 이메일로 사용자 조회
-        User user = userRepository.findByEmail(request.email())
+    public void saveData(HeartRateRequest request) {
+        // 1. 사용자 조회
+        User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("존재하지 않는 사용자입니다"));
 
-        // 2. deviceId로 기기 정보 조회 (기기 등록 여부 확인)
-        // 필요하다면 deviceId 중복 체크 로직 추가
-
-        // 3. 새 데이터 생성
-        SmartwatchData newData = SmartwatchData.builder()
+        // 2. 엔티티 생성
+        HeartRate newData = HeartRate.builder()
                 .user(user)
-                .measuredAt(request.timestamp() != null ? LocalDateTime.parse(request.timestamp()) : LocalDateTime.now())
-                .min(request.min())
-                .max(request.max())
-                .avg(request.avg())
-                .stress(request.stress())
-                .heartRate(request.heartRate())
-                .startTime(request.startTime())
-                .endTime(request.endTime())
-                .totalMinutes(request.totalMinutes())
-                .bloodOxygen(request.bloodOxygen())
-                .skinTemperature(request.skinTemperature())
+                .min(request.getMin())
+                .max(request.getMax())
+                .avg(request.getAvg())
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
+                .count(request.getCount())
+                .stress(request.getStress())
                 .build();
 
+        // 3. 저장
         smartwatchRepo.save(newData);
     }
-
     @Transactional
-    public void updateDeviceData(User user, SmartwatchRequest request) {
-        // 1. 해당 사용자의 해당 deviceId 데이터 조회 (여기선 가장 최근 데이터만 예시)
-        SmartwatchData data = smartwatchRepo.findByUserEmailOrderByMeasuredAtDesc(
-                 user.getEmail()
-        ).orElseThrow(() -> new RuntimeException("해당 데이터가 없습니다."));
+    public void updateDeviceData(HeartRateRequest request) {
 
-        // 2. 데이터 수정
-        if(request.timestamp() != null)
-            data.setMeasuredAt(LocalDateTime.parse(request.timestamp()));
-        if(request.min() != null)
-            data.setMin(request.min());
-        if(request.max() != null)
-            data.setMax(request.max());
-        if(request.avg() != null)
-            data.setAvg(request.avg());
-        if(request.stress() != null)
-            data.setStress(request.stress());
-        if(request.heartRate() != null)
-            data.setHeartRate(request.heartRate());
-        if(request.startTime() != null)
-            data.setStartTime(request.startTime());
-        if(request.endTime() != null)
-            data.setEndTime(request.endTime());
-        if(request.totalMinutes() != null)
-            data.setTotalMinutes(request.totalMinutes());
-        if(request.bloodOxygen() != null)
-            data.setBloodOxygen(request.bloodOxygen());
-        if(request.skinTemperature() != null)
-            data.setSkinTemperature(request.skinTemperature());
+        // ✅ measuredAt 제거, email로 사용자 조회 추가
+        User user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new RuntimeException("존재하지 않는 사용자입니다"));
 
-        // JPA의 Dirty Checking에 의해 자동 저장됨 (별도 save 불필요)
+        HeartRate data = smartwatchRepo.findTopByUserEmailOrderByStartTimeDesc(user.getEmail())
+                .orElseThrow(() -> new RuntimeException("해당 데이터가 없습니다."));
+
+        // ✅ DTO에 없는 필드(heartRate 등) 제거
+        if (request.getMin() != null) data.setMin(request.getMin());
+        if (request.getMax() != null) data.setMax(request.getMax());
+        if (request.getAvg() != null) data.setAvg(request.getAvg());
+        if (request.getStress() != null) data.setStress(request.getStress());
+        if (request.getStartTime() != null) data.setStartTime(request.getStartTime());
+        if (request.getEndTime() != null) data.setEndTime(request.getEndTime());
+        if (request.getCount() != null) data.setCount(request.getCount());
     }
+
 
 
 }
+
+
+
+
+
