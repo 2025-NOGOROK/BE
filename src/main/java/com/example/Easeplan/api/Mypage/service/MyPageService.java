@@ -1,10 +1,8 @@
 package com.example.Easeplan.api.Mypage.service;
 
-import com.example.Easeplan.api.Calendar.domain.GoogleCalendarInfo;
-import com.example.Easeplan.api.Calendar.dto.CalendarEventRequest;
 import com.example.Easeplan.api.Calendar.repository.GoogleCalendarRepository;
-import com.example.Easeplan.api.SmartWatch.domain.SmartwatchData;
-import com.example.Easeplan.api.SmartWatch.dto.SmartwatchRequest;
+import com.example.Easeplan.api.SmartWatch.domain.HeartRate;
+import com.example.Easeplan.api.SmartWatch.dto.HeartRateRequest;
 import com.example.Easeplan.api.SmartWatch.repository.SmartwatchRepository;
 import com.example.Easeplan.global.auth.domain.User;
 import com.example.Easeplan.global.auth.repository.RefreshTokenRepository;
@@ -12,8 +10,6 @@ import com.example.Easeplan.global.auth.repository.UserRepository;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -40,8 +36,8 @@ public class MyPageService {
 
     // 스마트워치 데이터 저장
 // SmartwatchService.java (정상 코드)
-    public void connectDevice(User user, SmartwatchRequest request) {
-        SmartwatchData data = SmartwatchData.builder() // ✅ 엔티티 변환
+    public void connectDevice(User user, HeartRateRequest request) {
+        HeartRate data = HeartRate.builder() // ✅ 엔티티 변환
                 .user(user)
                 .build();
         smartwatchRepo.save(data);

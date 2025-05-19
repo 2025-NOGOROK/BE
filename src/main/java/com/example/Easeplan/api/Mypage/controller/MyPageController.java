@@ -1,10 +1,8 @@
 package com.example.Easeplan.api.Mypage.controller;
 
-import com.example.Easeplan.api.Calendar.dto.CalendarEventRequest;
 import com.example.Easeplan.api.Calendar.service.GoogleCalendarService;
 import com.example.Easeplan.api.Mypage.service.MyPageService;
-import com.example.Easeplan.api.SmartWatch.domain.SmartwatchData;
-import com.example.Easeplan.api.SmartWatch.dto.SmartwatchRequest;
+import com.example.Easeplan.api.SmartWatch.dto.HeartRateRequest;
 import com.example.Easeplan.api.SmartWatch.service.SmartwatchService;
 import com.example.Easeplan.api.Survey.dto.UserSurveyRequest;
 import com.example.Easeplan.api.Survey.service.UserSurveyService;
@@ -15,9 +13,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -73,48 +70,30 @@ public class MyPageController {
     }
 
 
-    // 스마트워치 연동
-    @Operation(
-            summary = "스마트워치 데이터 수정",
-            description = """
-        사용자의 스마트워치 데이터를 수정합니다.<br>
-        <b>헤더에 accessToken을 포함해야 합니다.</b><br><br>
-        <b>요청 본문 예시:</b>
-        <pre>
-{
-  "deviceId": "galaxy-watch-5678",
-  "timestamp": "2025-05-18T14:30:45",
-  "min": 60.0,
-  "max": 120.0,
-  "avg": 80.0,
-  "stress": 70.0,
-  "heartRate": 82,
-  "startTime": "2025-05-18T14:00:00",
-  "endTime": "2025-05-18T14:30:00",
-  "totalMinutes": 30,
-  "bloodOxygen": 98.2,
-  "skinTemperature": 36.5
-}
-        </pre>
-        <b>응답:</b>
-        - 200 OK: 수정 성공
-        - 400 Bad Request: 유효하지 않은 데이터
-        - 401 Unauthorized: 인증 실패
-        """
-    )
-    @PutMapping("/smartwatch")
-    public ResponseEntity<String> updateSmartwatchData(
-            @AuthenticationPrincipal User user,
-            @RequestBody SmartwatchRequest request
-    ) {
+    @Operation(summary = "심박수 데이터 수정",description = """
+        ### 저장 예시
+        ```
+        {
+          "email": "user@example.com",
+          "min": 60.0,
+          "max": 120.0,
+          "avg": 80.0,
+          "startTime": "2025-05-18T14:00:00",
+          "endTime": "2025-05-18T14:30:00",
+          "count": 150,
+          "stress": 75.5
+        }
+        ```
+        """)
+    @PutMapping("/heartrate")
+    public ResponseEntity<?> updateData(@RequestBody @Valid HeartRateRequest request) {
         try {
-            smartwatchService.updateDeviceData(user, request);
-            return ResponseEntity.ok("스마트워치 데이터 수정 완료");
+            smartwatchService.updateDeviceData(request);
+            return ResponseEntity.ok("데이터 수정 성공");
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
-
 
     // 로그아웃
     @Operation(summary = "로그아웃", description = """
