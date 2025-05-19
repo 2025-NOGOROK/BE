@@ -44,7 +44,26 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/swagger-resources/**","/favicon.ico",
-                                "/webjars/**","/api/survey","/api/devices/data","/api/fcm/send").permitAll()
+                                "/webjars/**","/api/survey","/api/devices/data","/api/fcm/send",
+                                "/",                // 루트 경로 추가
+                                "/favicon.ico",     // favicon도 permitAll에 포함
+                                "/auth/**",
+                                "/auth/google/callback",
+                                "/auth/google/events",
+                                "/auth/google/free-time",
+                                "/error",
+                                "/error/**",
+                                "/api/naver/**",
+                                "/api/culture/events",
+                                "/api/tour/location",
+                                "/auth/google/eventsPlus",
+                                "/swagger-ui/**",
+                                "/v3/api-docs/**",
+                                "/swagger-resources/**",
+                                "/webjars/**",
+                                "/api/survey",
+                                "/api/devices/data",
+                                "/api/fcm/send").permitAll()
                         .requestMatchers("/api/survey/select","/api/survey/scenarios","/short-recommend/**","/api/haru/**","/api/fcm/**","/api/mypage/**","/api/devices/smartwatch","/api/fcm/register").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
