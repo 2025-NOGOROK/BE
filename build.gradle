@@ -80,6 +80,15 @@ bootJar {
 jar {
 	enabled = false
 }
+sourceSets {
+	main {
+		resources {
+			srcDirs = ["src/main/resources"]
+			// includes 제거 (모든 리소스 포함)
+		}
+	}
+}
+
 
 // build.gradle 하단에 추가
 
