@@ -11,6 +11,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
 @EnableWebSecurity
@@ -32,38 +35,46 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+
+    // ⭐️ CORS 설정 ⭐️
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource() {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowCredentials(true);
+        config.addAllowedOriginPattern("*");
+        config.addAllowedHeader("*");
+        config.addAllowedMethod("*");
+
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
+    }
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
+
                 .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.configurationSource(corsConfigurationSource())) // ✅ 새로운 방식
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**","/auth/google/callback","/auth/google/events","/auth/google/free-time","/error",
-                                "/error/**","/api/naver/**","/api/culture/events","/api/tour/location","/auth/google/eventsPlus",
+                        .requestMatchers("/error",
+                                "/error/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
-                                "/swagger-resources/**","/favicon.ico",
-                                "/webjars/**","/api/survey","/api/devices/data","/api/fcm/send",
+                                "/swagger-resources/**",
+                                "/webjars/**","/api/devices/data","/api/fcm/send",
                                 "/",                // 루트 경로 추가
                                 "/favicon.ico",     // favicon도 permitAll에 포함
                                 "/auth/**",
                                 "/auth/google/callback",
                                 "/auth/google/events",
                                 "/auth/google/free-time",
-                                "/error",
-                                "/error/**",
-                                "/api/naver/**",
                                 "/api/culture/events",
                                 "/api/tour/location",
                                 "/auth/google/eventsPlus",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/swagger-resources/**",
-                                "/webjars/**",
-                                "/api/survey",
-                                "/api/devices/data",
-                                "/api/fcm/send").permitAll()
+                                "/api/survey").permitAll()
                         .requestMatchers("/api/survey/select","/api/survey/scenarios","/short-recommend/**","/api/haru/**","/api/fcm/**","/api/mypage/**","/api/devices/smartwatch","/api/fcm/register").authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
