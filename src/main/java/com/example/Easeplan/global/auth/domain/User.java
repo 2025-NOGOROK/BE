@@ -1,7 +1,7 @@
 package com.example.Easeplan.global.auth.domain;
 
 import com.example.Easeplan.api.Calendar.domain.GoogleCalendarInfo;
-import com.example.Easeplan.api.SmartWatch.domain.SmartwatchData;
+import com.example.Easeplan.api.SmartWatch.domain.HeartRate;
 import com.example.Easeplan.api.Survey.domain.UserSurvey;
 import jakarta.persistence.*;
 import lombok.*;
@@ -11,7 +11,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 
 @Entity
@@ -120,7 +119,7 @@ public class User extends BaseEntity implements UserDetails {
     private List<GoogleCalendarInfo> calendarEvents = new ArrayList<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
-    private List<SmartwatchData> smartwatchData = new ArrayList<>();
+    private List<HeartRate> smartwatchData = new ArrayList<>();
 
 
     @ElementCollection
