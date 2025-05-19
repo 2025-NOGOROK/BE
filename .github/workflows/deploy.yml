@@ -29,6 +29,15 @@ jobs:
         env:
           ACCOUNT_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_KEY }}
 
+      - name: Verify Firebase Key Inclusion
+        run: |
+          # JAR 내부 파일 확인
+          jar tf build/libs/Easeplan-0.0.1-SNAPSHOT.jar | grep serviceAccountKey.json
+
+          # resources 폴더 확인
+          ls -la src/main/resources/firebase/
+
+
 
 
       - name: gradlew 실행 권한 부여
@@ -49,7 +58,15 @@ jobs:
         uses: aws-actions/amazon-ecr-login@v2
 
       - name: Docker 이미지 생성
-        run: docker build -t nogorok-server .
+        run: |
+          # 빌드 컨텍스트 확인
+          ls -la build/libs/ 
+          ls -la src/main/resources/firebase/ 
+
+          # 캐시 무효화 및 명시적 빌드
+          docker build --no-cache -t nogorok-server \
+            --build-arg JAR_FILE=build/libs/Easeplan-0.0.1-SNAPSHOT.jar .
+      
 
       - name: Docker 이미지에 Tag 붙이기
         run: docker tag nogorok-server ${{ steps.login-ecr.outputs.registry }}/nogorok-server:latest
