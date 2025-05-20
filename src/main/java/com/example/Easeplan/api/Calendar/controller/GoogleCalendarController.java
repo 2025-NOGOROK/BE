@@ -164,12 +164,14 @@ public class GoogleCalendarController {
                 .orElseThrow(() -> new RuntimeException("User not found"));
         String accessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
 
-        String url = UriComponentsBuilder.fromHttpUrl("https://www.googleapis.com/calendar/v3/calendars/" + calendarId + "/events")
+        String url = UriComponentsBuilder
+                .fromHttpUrl("https://www.googleapis.com/calendar/v3/calendars/" + calendarId + "/events")
                 .queryParam("timeMin", timeMin)
                 .queryParam("timeMax", timeMax)
                 .queryParam("singleEvents", "true")
                 .queryParam("orderBy", "startTime")
-                .build().toUriString();
+                .encode()
+                .toUriString();
 
         HttpHeaders headers = new HttpHeaders();
         headers.setBearerAuth(accessToken);
