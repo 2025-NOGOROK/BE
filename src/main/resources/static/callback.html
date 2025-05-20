@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>구글 인증 결과</title>
+    <style>
+        body { font-family: 'Segoe UI', Arial, sans-serif; background: #f8f9fa; text-align: center; padding-top: 80px; }
+        .box { display: inline-block; background: #fff; padding: 40px 60px; border-radius: 12px; box-shadow: 0 2px 16px #eee; }
+        .success { color: #2ecc40; font-size: 2rem; }
+        .fail { color: #ff4136; font-size: 2rem; }
+        .desc { margin-top: 20px; color: #555; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <div id="result" class="success">로그인 성공!</div>
+    <div class="desc" id="desc">구글 인증이 정상적으로 완료되었습니다.<br>이 창을 닫으셔도 됩니다.</div>
+</div>
+<script>
+    // URL 파라미터에 따라 메시지 변경
+    const params = new URLSearchParams(window.location.search);
+    const result = params.get('result');
+    const resultDiv = document.getElementById('result');
+    const descDiv = document.getElementById('desc');
+    if (result === 'fail') {
+        resultDiv.textContent = '로그인 실패';
+        resultDiv.className = 'fail';
+        descDiv.textContent = '구글 인증에 실패했습니다. 다시 시도해 주세요.';
+    }
+</script>
+</body>
+</html>

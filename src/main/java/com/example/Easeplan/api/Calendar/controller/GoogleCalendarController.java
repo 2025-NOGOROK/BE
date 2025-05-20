@@ -10,6 +10,7 @@ import com.example.Easeplan.global.auth.repository.UserRepository;
 import com.google.api.services.calendar.model.Event;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -19,6 +20,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -76,18 +78,20 @@ public class GoogleCalendarController {
     )
 
     @GetMapping("/callback")
-    public ResponseEntity<?> oauth2Callback(@RequestParam String code) {
+    public void oauth2Callback(@RequestParam String code, HttpServletResponse response) {
         try {
-            String decodedCode = URLDecoder.decode(code, StandardCharsets.UTF_8); // ✅ 디코딩 추가
+            String decodedCode = URLDecoder.decode(code, StandardCharsets.UTF_8);
             Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(decodedCode);
             String accessToken = (String) tokenResponse.get("access_token");
             if (accessToken == null) {
-                return ResponseEntity.status(400).body("토큰 발급 실패: access_token이 없습니다.");
+                response.sendRedirect("/login/fail?reason=token");
+                return;
             }
             Map<String, Object> userInfo = oAuthService.getGoogleUserInfo(accessToken);
             String email = (String) userInfo.get("email");
             if (email == null) {
-                return ResponseEntity.status(400).body("구글 userinfo에서 email을 가져올 수 없습니다.");
+                response.sendRedirect("/login/fail?reason=email");
+                return;
             }
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found: " + email));
@@ -96,13 +100,19 @@ public class GoogleCalendarController {
                     (String) tokenResponse.get("refresh_token")
             );
             userRepository.save(user);
-            return ResponseEntity.ok(tokenResponse);
+
+            String appRedirectUrl = "https://recommend.ai.kr/callback?result=success";;
+            response.sendRedirect(appRedirectUrl);
         } catch (Exception e) {
-            // 에러 로그 남기기
-            e.printStackTrace();
-            return ResponseEntity.status(500).body("구글 인증 중 오류 발생: " + e.getMessage());
+            String appErrorUrl = "https://recommend.ai.kr/callback?result=fail&reason=exception";
+            try {
+                response.sendRedirect(appErrorUrl);
+            } catch (IOException ioException) {
+                ioException.printStackTrace();
+            }
         }
     }
+
 
     // 일정 조회 (헤더에서 토큰 추출)
     @Operation(
