@@ -17,6 +17,7 @@ import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
@@ -101,7 +102,7 @@ public class GoogleCalendarController {
             );
             userRepository.save(user);
 
-            String appRedirectUrl = "https://recommend.ai.kr/callback?result=success";;
+            String appRedirectUrl = "https://recommend.ai.kr/callback.html?result=success";
             response.sendRedirect(appRedirectUrl);
         } catch (Exception e) {
             String appErrorUrl = "https://recommend.ai.kr/callback?result=fail&reason=exception";
@@ -150,21 +151,25 @@ public class GoogleCalendarController {
     )
     @GetMapping("/events")
     public Events getEvents(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam(defaultValue = "primary") String calendarId,
-            @RequestParam String timeMin,  // "2025-05-31T00:00:00+09:00" 형식
-            @RequestParam String timeMax,   // "2025-05-31T23:59:59+09:00" 형식
-            @AuthenticationPrincipal UserDetails userDetails // ✅ 추가
+            @RequestParam String timeMin,
+            @RequestParam String timeMax
     ) throws Exception {
-        String accessToken = extractBearerToken(authorization);
-        // ✅ 사용자 refreshToken 조회
+        // JWT에서 사용자 식별
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
         String refreshToken = user.getGoogleRefreshToken();
 
+        // 서버에서 구글 액세스 토큰을 새로 발급하거나, DB에서 꺼냄
+        String accessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
+        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        System.out.println("principal = " + principal);
 
-        return calendarService.getEvents(accessToken, refreshToken,calendarId, timeMin, timeMax);
+
+        return calendarService.getEvents(accessToken, refreshToken, calendarId, timeMin, timeMax);
     }
+
 
     // access token으로 일정 조회 (날짜 범위 추가)
 //    @Operation(summary = "구글캘린더 특정 일정으로 빈 일정 조회", description = """
@@ -236,17 +241,15 @@ public class GoogleCalendarController {
 
     @PostMapping("/eventsPlus")
     public ResponseEntity<Event> addEvent(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
-            @RequestBody CalendarEventRequest req, @AuthenticationPrincipal UserDetails userDetails // ✅ 추가
+            @RequestBody CalendarEventRequest req,
+            @AuthenticationPrincipal UserDetails userDetails
             ) throws Exception {
-        String accessToken = extractBearerToken(authorization);
-// ✅ 현재 사용자 조회
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        String refreshToken = user.getGoogleRefreshToken();
 
-        // ✅ 인스턴스 메서드 호출
-        String refreshToken = user.getGoogleRefreshToken(); // ✅ refreshToken 조회
-
+        // 서버에서 accessToken을 직접 갱신/관리
+        String accessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
         Event created = calendarService.addEvent(
 
                 user.getGoogleAccessToken(),
@@ -319,21 +322,19 @@ public class GoogleCalendarController {
 
     @DeleteMapping("/eventsPlus")
     public ResponseEntity<Void> deleteEvent(
-            @RequestHeader(HttpHeaders.AUTHORIZATION) String authorization,
             @RequestParam(defaultValue = "primary") String calendarId,
             @RequestParam String eventId,
-            @AuthenticationPrincipal UserDetails userDetails // ✅ 추가
+            @AuthenticationPrincipal UserDetails userDetails
     ) throws Exception {
-        String accessToken = extractBearerToken(authorization);
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        String refreshToken = user.getGoogleRefreshToken();
+        String accessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
 
-        // ✅ 인스턴스 메서드 호출
-        String refreshToken = user.getGoogleRefreshToken(); // ✅ refreshToken 조회
-
-        calendarService.deleteEvent(accessToken, refreshToken,calendarId, eventId);
+        calendarService.deleteEvent(accessToken, refreshToken, calendarId, eventId);
         return ResponseEntity.noContent().build();
     }
+
 
     // Bearer 토큰 추출 유틸
     private String extractBearerToken(String authorizationHeader) {
