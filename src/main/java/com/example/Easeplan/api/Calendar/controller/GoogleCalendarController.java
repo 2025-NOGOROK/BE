@@ -14,8 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -31,6 +30,11 @@ import java.time.ZonedDateTime;
 import java.util.List;
 import java.util.Map;
 import com.google.api.services.calendar.model.Events;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
+
 @Slf4j
 @Tag(name = "GoogleCalendar", description = "구글캘린더 API")
 @RestController
@@ -150,25 +154,41 @@ public class GoogleCalendarController {
         """
     )
     @GetMapping("/events")
-    public Events getEvents(
+    public ResponseEntity<String> getEvents(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam(defaultValue = "primary") String calendarId,
             @RequestParam String timeMin,
             @RequestParam String timeMax
     ) throws Exception {
-        // JWT에서 사용자 식별
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        String refreshToken = user.getGoogleRefreshToken();
-
-        // 서버에서 구글 액세스 토큰을 새로 발급하거나, DB에서 꺼냄
         String accessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
-        Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        System.out.println("principal = " + principal);
 
+        String url = UriComponentsBuilder.fromHttpUrl("https://www.googleapis.com/calendar/v3/calendars/" + calendarId + "/events")
+                .queryParam("timeMin", timeMin)
+                .queryParam("timeMax", timeMax)
+                .queryParam("singleEvents", "true")
+                .queryParam("orderBy", "startTime")
+                .build().toUriString();
 
-        return calendarService.getEvents(accessToken, refreshToken, calendarId, timeMin, timeMax);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setBearerAuth(accessToken);
+        headers.setAccept(List.of(MediaType.APPLICATION_JSON));
+        HttpEntity<Void> entity = new HttpEntity<>(headers);
+
+        RestTemplate restTemplate = new RestTemplate();
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
+            return response;
+        } catch (HttpClientErrorException | HttpServerErrorException ex) {
+            log.error("구글 API 에러: {} / {}", ex.getStatusCode(), ex.getResponseBodyAsString());
+            return ResponseEntity.status(ex.getStatusCode()).body(ex.getResponseBodyAsString());
+        } catch (Exception e) {
+            log.error("알 수 없는 에러: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Internal Server Error: " + e.getMessage());
+        }
     }
+
 
 
     // access token으로 일정 조회 (날짜 범위 추가)
