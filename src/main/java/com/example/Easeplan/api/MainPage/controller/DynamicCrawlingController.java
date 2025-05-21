@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 
-@Tag(name = "스트레스 관리", description = "크롤링한 스트레스 관리API")
+@Tag(name = "메인페이지", description = "스트레스 관리API+여행추천API")
 @RestController
 public class DynamicCrawlingController {
     private final DynamicCrawlingService1 crawlingService1;
