@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 
-@Tag(name = "스마트워치 연동", description = "스마트워치 API")
+
 @SecurityRequirement(name = "accessToken")
 @RestController
 @RequiredArgsConstructor
@@ -42,6 +42,7 @@ public class SmartwatchController {
         }
         ```
         """)
+    @Tag(name = "스마트워치 연동", description = "스마트워치 API")
     @PostMapping("/heartrate")
     public ResponseEntity<?> submitData(@RequestBody @Valid HeartRateRequest request) {
         try {
@@ -56,6 +57,7 @@ public class SmartwatchController {
     }
 
     // 최근 스트레스 지수 반환
+    @Tag(name = "메인페이지", description = "스트레스 관리API+여행추천API")
     @Operation(
             summary = "심박수 데이터 반환",
             description = """
