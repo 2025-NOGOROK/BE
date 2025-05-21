@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 
 @Service
@@ -59,7 +60,10 @@ public class SmartwatchService {
         if (request.getCount() != null) data.setCount(request.getCount());
     }
 
-
+    // 최근 스트레스 지수 조회
+    public Optional<HeartRate> getLatestHeartRate(User user) {
+        return smartwatchRepo.findTop1ByUserOrderByEndTimeDesc(user).stream().findFirst();
+    }
 
 }
 
