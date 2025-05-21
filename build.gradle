@@ -40,6 +40,10 @@ dependencies {
 	testImplementation 'org.springframework.security:spring-security-test'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 
+	// seleniumhq
+	implementation 'org.seleniumhq.selenium:selenium-java:4.10.0'
+
+
 
 	//jwt
 	implementation "io.jsonwebtoken:jjwt-api:0.11.5"
