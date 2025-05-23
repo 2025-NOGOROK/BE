@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface DailyEvaluationRepository extends JpaRepository<DailyEvaluation, Long> {
     Optional<DailyEvaluation> findByUserAndDate(User user, LocalDate date);
 
-    //월,일요일 해당하는 날짜
+    //startDate 이상, endDate 이하인 모든 DailyEvaluation을 조회
     List<DailyEvaluation> findAllByUserAndDateBetween(User user, LocalDate startDate, LocalDate endDate);
+
+
 }
