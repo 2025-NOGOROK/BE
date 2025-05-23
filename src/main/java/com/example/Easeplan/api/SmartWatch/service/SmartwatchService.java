@@ -22,7 +22,7 @@ public class SmartwatchService {
     private final SmartwatchRepository smartwatchRepo;
     private final UserRepository userRepository;
 
-    // 1시간마다 실행, 서버 시작 후 5초 뒤 첫 실행
+    // 1시간마다 실행, 서버 시작 후 5초 뒤 첫 실행 (자동 저장을 위한 반복/조건 체크)
     @Scheduled(fixedRate = 60 * 60 * 1000, initialDelay = 5000)
     @Transactional
     public void saveHourlyHeartRate() {

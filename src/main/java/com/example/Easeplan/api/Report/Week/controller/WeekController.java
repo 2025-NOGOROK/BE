@@ -31,7 +31,7 @@ public class WeekController {
             반환 데이터는 월~일 순서로 정렬되어 있습니다.
         """
     )
-    @GetMapping("/weekly/stress")
+    @GetMapping("/api/weekly/stress")
     public WeeklyStressResponse getCurrentWeekStress(
             @AuthenticationPrincipal User user
     ) {
@@ -47,7 +47,7 @@ public class WeekController {
             반환 데이터는 월~일 순서로 정렬되어 있습니다.
         """
     )
-    @GetMapping("/weekly/emotion-fatigue")
+    @GetMapping("/api/weekly/emotion-fatigue")
     public WeeklyEmotionFatigueResponse getCurrentWeekEmotionFatigue(
             @AuthenticationPrincipal User user
     ) {
@@ -63,7 +63,7 @@ public class WeekController {
             반환 데이터는 월~일 순서로 정렬되어 있습니다.
         """
     )
-    @GetMapping("/weekly/weather")
+    @GetMapping("/api/weekly/weather")
     public WeeklyWeatherResponse getCurrentWeekWeather(
             @AuthenticationPrincipal User user
     ) {
