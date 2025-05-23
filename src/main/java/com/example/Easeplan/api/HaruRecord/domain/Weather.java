@@ -1,7 +1,7 @@
 package com.example.Easeplan.api.HaruRecord.domain;
 
 public enum Weather {
-    ICE("얼음"),
+    SUNNY("맑음"),
     CLOUDY("흐림"),
     RAIN("비"),
     SNOW("눈");
