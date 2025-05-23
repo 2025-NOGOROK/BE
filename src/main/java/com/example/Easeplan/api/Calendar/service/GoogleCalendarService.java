@@ -1,25 +1,23 @@
 package com.example.Easeplan.api.Calendar.service;
 
-import com.example.Easeplan.api.Calendar.domain.GoogleCalendarInfo;
-import com.example.Easeplan.api.Calendar.dto.TimeSlot;
 import com.example.Easeplan.api.Calendar.dto.FormattedTimeSlot;
+import com.example.Easeplan.api.Calendar.dto.TimeSlot;
+import com.example.Easeplan.global.auth.domain.User;
+import com.example.Easeplan.global.auth.repository.UserRepository;
+
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.util.DateTime;
 import com.google.api.services.calendar.Calendar;
 import com.google.api.services.calendar.model.*;
+
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.AccessToken;
-import com.google.auth.oauth2.GoogleCredentials;
-import jakarta.transaction.Transactional;
+import com.google.auth.oauth2.UserCredentials;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -36,77 +34,59 @@ public class GoogleCalendarService {
     @Value("${google.client-secret}")
     private String clientSecret;
 
+    private final GoogleOAuthService oAuthService;
+    private final UserRepository userRepository; // User 엔티티를 직접 수정할 필요는 없지만, 주입되어 있다면 유지
 
+    public GoogleCalendarService(GoogleOAuthService oAuthService, UserRepository userRepository) {
+        this.oAuthService = oAuthService;
+        this.userRepository = userRepository;
+    }
 
-    public Calendar getCalendarService( String accessToken, String refreshToken) throws Exception {
+    /**
+     * User 객체를 기반으로 구글 캘린더 서비스를 생성합니다.
+     * 이 메서드는 oAuthService를 통해 항상 유효한 access_token을 가져와 사용합니다.
+     * @param user 현재 로그인한 사용자 엔티티 (구글 토큰 정보를 포함)
+     * @return 구글 캘린더 API 서비스 객체
+     * @throws Exception HTTP 전송 또는 JSON 파싱 중 오류 발생 시
+     */
+    public Calendar getCalendarService(User user) throws Exception {
+        // **[핵심]** oAuthService를 통해 항상 최신이고 유효한 access_token을 가져옵니다.
+        String accessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
+        String refreshToken = user.getGoogleRefreshToken(); // User 객체에서 refresh token 가져오기
+
+        // GoogleClientSecrets는 한 번만 생성하여 재사용하는 것이 효율적입니다.
         GoogleClientSecrets clientSecrets = new GoogleClientSecrets()
                 .setWeb(new GoogleClientSecrets.Details()
-                        .setClientId(clientId) // ✅ 주입된 값 사용
-                        .setClientSecret(clientSecret)); // ✅ 주입된 값 사용
-        // ✅ RefreshToken을 포함한 Credentials 생성
-        GoogleCredential credential = new GoogleCredential.Builder()
-                .setTransport(GoogleNetHttpTransport.newTrustedTransport())
-                .setJsonFactory(GsonFactory.getDefaultInstance())
-                .setClientSecrets(clientSecrets)
-                .build()
-                .setAccessToken(accessToken)
-                .setRefreshToken(refreshToken);
+                        .setClientId(clientId)
+                        .setClientSecret(clientSecret));
 
-        return new Calendar.Builder(
+        // GoogleCredential 생성: access_token과 refresh_token을 설정
+        // 이 credential 객체는 필요시 자체적으로 refresh()를 호출할 수 있지만,
+        // 우리는 oAuthService에서 미리 갱신된 토큰을 받아오므로 여기서는 주로 설정 역할입니다.
+        UserCredentials userCredentials = UserCredentials.newBuilder()
+                .setClientId(clientId)
+                .setClientSecret(clientSecret)
+                .setRefreshToken(refreshToken)
+                .setAccessToken(new AccessToken(accessToken, null)) // 만료일 관리 필요시 두 번째 파라미터에 만료일 전달
+                .build();
+
+        HttpCredentialsAdapter requestInitializer = new HttpCredentialsAdapter(userCredentials);
+
+        Calendar service = new Calendar.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 GsonFactory.getDefaultInstance(),
-                credential
-        ).setApplicationName("YOUR_APP_NAME").build();
+                requestInitializer
+        ).setApplicationName("Easeplan").build();
+        return service; // ✅ 반드시 return 추가!
     }
 
-    public List<FormattedTimeSlot> getFormattedEvents(
-            String accessToken,
-            String refreshToken,
-            String calendarId,
-            String timeMin,
-            String timeMax
-    ) throws Exception {
-        Events events = getEvents(accessToken, refreshToken, calendarId, timeMin, timeMax);
-        List<FormattedTimeSlot> slots = new ArrayList<>();
-        for (Event event : events.getItems()) {
-            String title = event.getSummary();
-            String description = event.getDescription();
+    // --- (이하 모든 캘린더 API 호출 메서드는 user 객체를 첫 번째 인자로 받도록 변경) ---
 
-            // NPE 방지: 올데이 이벤트 처리
-            String startDateTime;
-            if (event.getStart().getDateTime() != null) {
-                startDateTime = event.getStart().getDateTime().toStringRfc3339();
-            } else if (event.getStart().getDate() != null) {
-                startDateTime = event.getStart().getDate().toString();
-            } else {
-                startDateTime = null;
-            }
-
-            String endDateTime;
-            if (event.getEnd().getDateTime() != null) {
-                endDateTime = event.getEnd().getDateTime().toStringRfc3339();
-            } else if (event.getEnd().getDate() != null) {
-                endDateTime = event.getEnd().getDate().toString();
-            } else {
-                endDateTime = null;
-            }
-
-            slots.add(new FormattedTimeSlot(title, description, startDateTime, endDateTime));
-        }
-        return slots;
-    }
-
-
-    // 1. 일정 전체 조회 (기존 기능)
-// 1. 일정 전체 조회 (날짜 범위 필터링 추가)
-    public Events getEvents(String accessToken,String refreshToken, String calendarId, String timeMinStr, String timeMaxStr) throws Exception {
-        Calendar service = getCalendarService( accessToken, refreshToken);
-
-        // 인코딩하지 않고, 문자열 그대로 사용
-        DateTime timeMin = new DateTime(timeMinStr); // 또는 DateTime.parseRfc3339(timeMinStr)
+    public Events getEvents(User user, String calendarId, String timeMinStr, String timeMaxStr) throws Exception {
+        Calendar service = getCalendarService(user); // User 객체 전달
+        DateTime timeMin = new DateTime(timeMinStr);
         DateTime timeMax = new DateTime(timeMaxStr);
 
-        // 3. API 호출
         return service.events().list(calendarId)
                 .setTimeMin(timeMin)
                 .setTimeMax(timeMax)
@@ -116,32 +96,57 @@ public class GoogleCalendarService {
                 .execute();
     }
 
-    // 2. 빈 시간대(밀리초) 조회 (기존 기능)
-    public List<TimeSlot> getFreeTimeSlots(String accessToken, String refreshToken, LocalDate date) throws Exception {
-        Calendar service = getCalendarService(accessToken,refreshToken);
+    public List<FormattedTimeSlot> getFormattedEvents(
+            User user,
+            String calendarId,
+            String timeMin,
+            String timeMax
+    ) throws Exception {
+        Events events = getEvents(user, calendarId, timeMin, timeMax);
+        List<FormattedTimeSlot> slots = new ArrayList<>();
+        for (Event event : events.getItems()) {
+            String title = event.getSummary();
+            String description = event.getDescription();
+            String startDateTime;
+            if (event.getStart().getDateTime() != null) {
+                startDateTime = event.getStart().getDateTime().toStringRfc3339();
+            } else if (event.getStart().getDate() != null) {
+                startDateTime = event.getStart().getDate().toString();
+            } else {
+                startDateTime = null;
+            }
+            String endDateTime;
+            if (event.getEnd().getDateTime() != null) {
+                endDateTime = event.getEnd().getDateTime().toStringRfc3339();
+            } else if (event.getEnd().getDate() != null) {
+                endDateTime = event.getEnd().getDate().toString();
+            } else {
+                endDateTime = null;
+            }
+            slots.add(new FormattedTimeSlot(title, description, startDateTime, endDateTime));
+        }
+        return slots;
+    }
 
-        // 시간 범위 설정 (하루 전체)
+    public List<TimeSlot> getFreeTimeSlots(User user, LocalDate date) throws Exception {
+        Calendar service = getCalendarService(user);
         DateTime timeMin = new DateTime(date.toString() + "T00:00:00.000+09:00");
         DateTime timeMax = new DateTime(date.plusDays(1).toString() + "T00:00:00.000+09:00");
 
-        // FreeBusy 요청 생성
         FreeBusyRequest request = new FreeBusyRequest()
                 .setTimeMin(timeMin)
                 .setTimeMax(timeMax)
                 .setTimeZone("Asia/Seoul")
                 .setItems(List.of(new FreeBusyRequestItem().setId("primary")));
 
-        // API 호출
         FreeBusyResponse response = service.freebusy().query(request).execute();
 
-        // busy 시간대 추출
         List<FreeBusyCalendar> calendars = response.getCalendars().values().stream().toList();
         List<TimeSlot> busySlots = calendars.get(0).getBusy().stream()
                 .map(busy -> new TimeSlot(busy.getStart(), busy.getEnd()))
                 .sorted(Comparator.comparingLong(slot -> slot.getStart().getValue()))
                 .toList();
 
-        // 빈 시간 계산
         return calculateFreeSlots(busySlots, timeMin, timeMax);
     }
 
@@ -162,7 +167,6 @@ public class GoogleCalendarService {
             freeSlots.add(new TimeSlot(currentStart, timeMax));
         }
 
-        // 30분 이상만 필터링
         return freeSlots.stream()
                 .filter(slot -> getDurationMinutes(slot) >= 30)
                 .toList();
@@ -173,9 +177,8 @@ public class GoogleCalendarService {
         return TimeUnit.MILLISECONDS.toMinutes(diff);
     }
 
-    // 3. 빈 시간대 "0시 ~ 19시" 형식 반환 (신규 기능)
-    public List<FormattedTimeSlot> getFormattedFreeTimeSlots(String accessToken,String refreshToken, LocalDate date) throws Exception {
-        List<TimeSlot> freeSlots = getFreeTimeSlots(accessToken, refreshToken,date);
+    public List<FormattedTimeSlot> getFormattedFreeTimeSlots(User user, LocalDate date) throws Exception {
+        List<TimeSlot> freeSlots = getFreeTimeSlots(user, date);
         List<FormattedTimeSlot> formattedSlots = new ArrayList<>();
         ZoneId seoulZone = ZoneId.of("Asia/Seoul");
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("H시");
@@ -184,10 +187,9 @@ public class GoogleCalendarService {
             ZonedDateTime start = Instant.ofEpochMilli(slot.getStart().getValue()).atZone(seoulZone);
             ZonedDateTime end = Instant.ofEpochMilli(slot.getEnd().getValue()).atZone(seoulZone);
 
-            // endTime이 0시(00:00)이면서, startTime이 0보다 크면 "24시"로 표시
             String endDisplay = (end.getHour() == 0 && start.getHour() > 0) ? "24시" : end.format(formatter);
             formattedSlots.add(new FormattedTimeSlot(
-                    null, // title (필수 필드이므로 필요시 기본값 설정)
+                    null,
                     null,
                     start.format(formatter),
                     endDisplay
@@ -196,22 +198,19 @@ public class GoogleCalendarService {
         return formattedSlots;
     }
 
-    // 일정 추가
     public Event addEvent(
-
-            String accessToken,
-            String refreshToken, // ✅ 추가
+            User user,
             String calendarId,
             String title,
             String description,
             String startDateTime,
             String endDateTime,
             boolean serverAlarm,
-            int minutesBeforeAlarm, // <-- 추가!
+            int minutesBeforeAlarm,
             boolean fixed,
             boolean userLabel
     ) throws Exception {
-        Calendar service = getCalendarService(accessToken, refreshToken);
+        Calendar service = getCalendarService(user);
 
         Event event = new Event()
                 .setSummary(title)
@@ -223,7 +222,6 @@ public class GoogleCalendarService {
                         .setDateTime(new DateTime(endDateTime))
                         .setTimeZone("Asia/Seoul"));
 
-        // Custom 필드 저장
         Map<String, String> customProps = new HashMap<>();
         customProps.put("serverAlarm", String.valueOf(serverAlarm));
         customProps.put("minutesBeforeAlarm", String.valueOf(minutesBeforeAlarm));
@@ -231,7 +229,6 @@ public class GoogleCalendarService {
         customProps.put("userLabel", String.valueOf(userLabel));
         event.setExtendedProperties(new Event.ExtendedProperties().setPrivate(customProps));
 
-        // 서버 알림 설정 (사용자 입력값 반영)
         if (serverAlarm) {
             Event.Reminders reminders = new Event.Reminders()
                     .setUseDefault(false)
@@ -244,18 +241,12 @@ public class GoogleCalendarService {
         return service.events().insert(calendarId, event).execute();
     }
 
-
-    // 일정 삭제
-// 3. deleteEvent 메서드 수정
     public void deleteEvent(
-            String accessToken,
-            String refreshToken, // ✅ 추가
+            User user,
             String calendarId,
             String eventId
     ) throws Exception {
-        Calendar service = getCalendarService(accessToken, refreshToken); // ✅ refreshToken 전달
+        Calendar service = getCalendarService(user);
         service.events().delete(calendarId, eventId).execute();
     }
-
-
 }
