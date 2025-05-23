@@ -70,7 +70,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(
                                 "/api/survey/select", "/api/survey/scenarios", "/short-recommend/**", "/api/haru/**","/api/tour/location",
-                                "/api/fcm/**", "/api/mypage/**", "/api/devices/latest", "/api/fcm/register","/api/crawl/**","/weekly/**"
+                                "/api/fcm/**", "/api/mypage/**", "/api/devices/latest", "/api/fcm/register","/api/crawl/**","/api/weekly/**","/api/monthly/**"
                         ).authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
