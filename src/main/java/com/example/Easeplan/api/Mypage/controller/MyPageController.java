@@ -96,17 +96,17 @@ public class MyPageController {
 //    }
 
     // 로그아웃
-    @Operation(summary = "로그아웃", description = """
-            앱 로그아웃을 진행합니다.<br>
-            헤더에 accessToken을 넣어주세요.<br>
-            """)
-    @PostMapping("/logout")
-    public ResponseEntity<String> logout(@AuthenticationPrincipal User user, HttpSession session
-                                         ) {
-        myPageService.logout(user.getEmail());
-        if (session != null) session.invalidate();
-        return ResponseEntity.ok("로그아웃 완료");
-    }
+//    @Operation(summary = "로그아웃", description = """
+//            앱 로그아웃을 진행합니다.<br>
+//            헤더에 accessToken을 넣어주세요.<br>
+//            """)
+//    @PostMapping("/logout")
+//    public ResponseEntity<String> logout(@AuthenticationPrincipal User user, HttpSession session
+//                                         ) {
+//        myPageService.logout(user.getEmail());
+//        if (session != null) session.invalidate();
+//        return ResponseEntity.ok("로그아웃 완료");
+//    }
 
     // 회원 탈퇴
     @Operation(summary = "회원탈퇴", description = """
