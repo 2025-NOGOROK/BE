@@ -9,9 +9,15 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDateTime; // LocalDateTime 임포트
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+
+// 아래 임포트는 실제 코드에 없었지만, 있다면 주석처리 또는 제거 여부 판단
+// import com.example.Easeplan.api.Calendar.domain.GoogleCalendarInfo; // User 엔티티에서 직접 List<GoogleCalendarInfo>를 관리한다면 필요
+// import com.example.Easeplan.api.SmartWatch.domain.HeartRate; // User 엔티티에서 직접 List<HeartRate>를 관리한다면 필요
+// import com.example.Easeplan.api.Survey.domain.UserSurvey; // User 엔티티에서 직접 UserSurvey를 관리한다면 필요
 
 @Entity
 @Getter
@@ -19,7 +25,7 @@ import java.util.List;
 @AllArgsConstructor(access = AccessLevel.PRIVATE)
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @EqualsAndHashCode(of = "id", callSuper = false)
-@Table(name = "`user`")
+@Table(name = "`user`") // SQL 예약어 'user' 충돌 방지를 위해 백틱 사용
 public class User extends BaseEntity implements UserDetails {
 
     @Id
@@ -28,29 +34,27 @@ public class User extends BaseEntity implements UserDetails {
     private Long id;
 
     @Column(nullable = false)
-    private String name; // 추가
+    private String name;
 
     @Column(nullable = false)
-    private String birth; // 추가 (Date 타입으로 저장하고 싶으면 LocalDate로 변경 가능)
+    private String birth;
 
     @Column
-    private String gender; // 선택
-
+    private String gender;
 
     @Column(nullable = false)
     private String password;
 
     @Column(unique = true, nullable = false)
-    private String email;
+    private String email; // UserDetails의 username으로 사용
 
     @Column(nullable = false)
-    private boolean pushNotificationAgreed; // 푸시 알림 동의 여부
+    private boolean pushNotificationAgreed;
 
     @Column
-    private String deviceToken; //푸시 알림을 보내기 위해 반드시 필요한 기기 고유 식별자
+    private String deviceToken; // 단일 FCM 기기 토큰 (여러 기기라면 fcmTokens 리스트 사용)
 
-
-    // 약관 동의 필드 추가
+    // 약관 동의 필드
     @Column(nullable = false)
     private boolean termsOfServiceAgreed;
 
@@ -63,8 +67,10 @@ public class User extends BaseEntity implements UserDetails {
     @Column(nullable = false)
     private boolean locationPolicyAgreed;
 
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL)
-    private UserSurvey userSurvey;
+    // UserSurvey 관계 (mappedBy 속성 주의)
+    // UserSurvey 엔티티에 'user' 필드가 있어야 합니다.
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private UserSurvey userSurvey; // UserSurvey 엔티티 클래스가 존재해야 함
 
     @Column(name = "google_access_token")
     private String googleAccessToken;
@@ -72,27 +78,46 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "google_refresh_token")
     private String googleRefreshToken;
 
-    // 액세스 토큰 업데이트 메서드
-    public void updateGoogleTokens(String accessToken, String refreshToken) {
-        this.googleAccessToken = accessToken;
-        this.googleRefreshToken = refreshToken;
+    // **[핵심 변경]** 구글 액세스 토큰 만료 시각 저장 필드 추가 (UTC 기준)
+    @Column(name = "google_access_token_expires_at")
+    private LocalDateTime googleAccessTokenExpiresAt;
+
+    /**
+     * 구글 OAuth 토큰 정보를 업데이트합니다.
+     * @param newAccessToken 새로 발급받은 액세스 토큰
+     * @param newRefreshToken 새로 발급받은 리프레시 토큰 (없으면 null 또는 빈 문자열)
+     */
+    public void updateGoogleTokens(String newAccessToken, String newRefreshToken) {
+        this.googleAccessToken = newAccessToken;
+        // refresh token은 최초 발급 시 또는 아주 드물게 갱신될 때만 넘어옵니다.
+        // null이 아니거나 빈 문자열이 아닐 때만 업데이트합니다.
+        if (newRefreshToken != null && !newRefreshToken.isEmpty()) {
+            this.googleRefreshToken = newRefreshToken;
+        }
+        // googleAccessTokenExpiresAt은 이 메서드 호출 후 별도로 설정해야 합니다.
     }
 
-    // 추가
+    /**
+     * 구글 액세스 토큰의 만료 시각을 설정합니다. (UTC 기준)
+     * @param expiresAt 만료 시각 (LocalDateTime)
+     */
+    public void setGoogleAccessTokenExpiresAt(LocalDateTime expiresAt) {
+        this.googleAccessTokenExpiresAt = expiresAt;
+    }
+
+    // 비밀번호 설정 메서드
     public void setPassword(String password) {
         this.password = password;
     }
 
-
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        // ✅ "ROLE_USER" 권한 추가
         return List.of(new SimpleGrantedAuthority("ROLE_USER"));
     }
 
     @Override
     public String getUsername() {
-        return email; // UserDetails의 username은 email로 매핑
+        return email; // UserDetails의 username은 이메일로 매핑
     }
 
     @Override
@@ -115,14 +140,18 @@ public class User extends BaseEntity implements UserDetails {
         return true;
     }
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    // GoogleCalendarInfo 와의 1:N 관계
+    // GoogleCalendarInfo 엔티티에 'user' 필드가 있어야 합니다.
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<GoogleCalendarInfo> calendarEvents = new ArrayList<>();
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL)
+    // HeartRate 와의 1:N 관계
+    // HeartRate 엔티티에 'user' 필드가 있어야 합니다.
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<HeartRate> smartwatchData = new ArrayList<>();
 
-
-    @ElementCollection
+    // FCM 토큰 관리를 위한 컬렉션 (여러 기기 지원)
+    @ElementCollection(fetch = FetchType.EAGER) // 즉시 로딩 (DB 쿼리 한 번으로 가져옴)
     @CollectionTable(name = "user_fcm_tokens", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "token")
     private List<String> fcmTokens = new ArrayList<>();
