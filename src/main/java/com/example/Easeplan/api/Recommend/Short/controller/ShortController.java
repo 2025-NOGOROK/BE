@@ -59,7 +59,7 @@ public class ShortController {
         <b>예시 요청:</b><br>
         <code>GET /short-recommend?date=2025-05-18</code>
         """)
-    @GetMapping("/short-recommend")
+    @GetMapping("/api/short-recommend")
     public ResponseEntity<List<FormattedTimeSlot>> getShortRecommendation(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam String date // yyyy-MM-dd
@@ -80,13 +80,14 @@ public class ShortController {
             ZonedDateTime endOfDay = startOfDay.plusDays(1).minusSeconds(1);
 
             List<FormattedTimeSlot> events = calendarService.getFormattedEvents(
-                    accessToken, refreshToken, "primary",
+                    user, "primary",
                     startOfDay.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                     endOfDay.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             );
 
-            List<TimeSlot> freeSlots = calendarService.getFreeTimeSlots(accessToken, refreshToken, LocalDate.parse(date));
-
+            List<TimeSlot> freeSlots = calendarService.getFreeTimeSlots(
+                    user, LocalDate.parse(date)
+            );
             // 06:00 이후 시작하는 슬롯만 필터링
             List<TimeSlot> filteredSlots = freeSlots.stream()
                     .filter(slot -> {
@@ -144,7 +145,7 @@ public class ShortController {
         <b>예시 요청:</b><br>
         <code>POST /short-recommend?date=2025-05-18</code>
         """)
-    @PostMapping("/short-recommend")
+    @PostMapping("/api/short-recommend")
     public ResponseEntity<List<FormattedTimeSlot>> createAndSaveShortRecommendation(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam String date // yyyy-MM-dd
@@ -165,12 +166,12 @@ public class ShortController {
             ZonedDateTime endOfDay = startOfDay.plusDays(1).minusSeconds(1);
 
             List<FormattedTimeSlot> events = calendarService.getFormattedEvents(
-                    accessToken, refreshToken, "primary",
+                    user, "primary",
                     startOfDay.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                     endOfDay.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             );
 
-            List<TimeSlot> freeSlots = calendarService.getFreeTimeSlots(accessToken, refreshToken, LocalDate.parse(date));
+            List<TimeSlot> freeSlots = calendarService.getFreeTimeSlots(user, LocalDate.parse(date));
 
             // 06:00 이후 시작하는 슬롯만 필터링
             List<TimeSlot> filteredSlots = freeSlots.stream()
@@ -209,18 +210,18 @@ public class ShortController {
 
                 // 구글 캘린더에 저장
                 calendarService.addEvent(
-                        accessToken,
-                        refreshToken,
+                        user,
                         "primary",
                         event.getTitle(),
                         event.getDescription(),
                         start.toStringRfc3339(),
                         end.toStringRfc3339(),
-                        false,  // serverAlarm
-                        0,      // minutesBeforeAlarm
-                        false,  // fixed
-                        false   // userLabel
+                        false,
+                        0,
+                        false,
+                        false
                 );
+
             }
 
             List<FormattedTimeSlot> all = new ArrayList<>(events);
