@@ -70,30 +70,30 @@ public class MyPageController {
     }
 
 
-    @Operation(summary = "심박수 데이터 수정",description = """
-        ### 저장 예시
-        ```
-        {
-          "email": "user@example.com",
-          "min": 60.0,
-          "max": 120.0,
-          "avg": 80.0,
-          "startTime": "2025-05-18T14:00:00",
-          "endTime": "2025-05-18T14:30:00",
-          "count": 150,
-          "stress": 75.5
-        }
-        ```
-        """)
-    @PutMapping("/heartrate")
-    public ResponseEntity<?> updateData(@RequestBody @Valid HeartRateRequest request) {
-        try {
-            smartwatchService.updateDeviceData(request);
-            return ResponseEntity.ok("데이터 수정 성공");
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-    }
+//    @Operation(summary = "심박수 데이터 수정",description = """
+//        ### 저장 예시
+//        ```
+//        {
+//          "email": "user@example.com",
+//          "min": 60.0,
+//          "max": 120.0,
+//          "avg": 80.0,
+//          "startTime": "2025-05-18T14:00:00",
+//          "endTime": "2025-05-18T14:30:00",
+//          "count": 150,
+//          "stress": 75.5
+//        }
+//        ```
+//        """)
+//    @PutMapping("/heartrate")
+//    public ResponseEntity<?> updateData(@RequestBody @Valid HeartRateRequest request) {
+//        try {
+//            smartwatchService.updateDeviceData(request);
+//            return ResponseEntity.ok("데이터 수정 성공");
+//        } catch (RuntimeException e) {
+//            return ResponseEntity.badRequest().body(e.getMessage());
+//        }
+//    }
 
     // 로그아웃
     @Operation(summary = "로그아웃", description = """
