@@ -65,12 +65,12 @@ public class SecurityConfig {
                                 "/error", "/callback.html", "/static/**", "/error/**",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**",
                                 "/api/devices/data", "/api/fcm/send", "/", "/favicon.ico",
-                                "/auth/**", "/auth/google/callback", "/auth/google/events", "/auth/google/free-time",
-                                "/api/culture/events", "/auth/google/eventsPlus", "/api/survey"
+                                "/auth/**", "/auth/google/callback",
+                                "/api/culture/events", "/api/survey", "/api/devices/heartrate"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/survey/select", "/api/survey/scenarios", "/short-recommend/**", "/api/haru/**","/api/tour/location",
-                                "/api/fcm/**", "/api/mypage/**", "/api/devices/smartwatch", "/api/fcm/register","/api/crawl/**"
+                                "/api/fcm/**", "/api/mypage/**", "/api/devices/latest", "/api/fcm/register","/api/crawl/**","/weekly/**"
                         ).authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
