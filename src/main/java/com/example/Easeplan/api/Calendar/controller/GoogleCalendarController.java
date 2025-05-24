@@ -125,19 +125,24 @@ public class GoogleCalendarController {
 
     @GetMapping("/events")
     public ResponseEntity<List<FormattedTimeSlot>> getEvents(
-            @AuthenticationPrincipal UserDetails userDetails, // 현재 로그인한 사용자 정보 (스프링 시큐리티)
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam(defaultValue = "primary") String calendarId,
             @RequestParam String timeMin,
             @RequestParam String timeMax
-    ) throws Exception {
-        // userDetails에서 이메일(username)을 가져와 DB에서 User 엔티티 조회
-        User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    ) {
+        try {
+            User user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // User 객체를 서비스에 전달하여 토큰 관리 및 캘린더 API 호출 위임
-        List<FormattedTimeSlot> events = calendarService.getFormattedEvents(user, calendarId, timeMin, timeMax);
-        return ResponseEntity.ok(events);
+            List<FormattedTimeSlot> events = calendarService.getFormattedEvents(user, calendarId, timeMin, timeMax);
+            return ResponseEntity.ok(events);
+        } catch (Exception e) {
+            log.error("구글 캘린더 이벤트 추가 중 예외 발생", e);
+            // 필요하다면 사용자에게 적절한 에러 메시지 반환
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
+
 
 
 
