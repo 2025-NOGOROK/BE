@@ -53,7 +53,7 @@ public class CultureEventController {
     )
     @GetMapping("/api/culture/events")
     public String getEvents(
-            @AuthenticationPrincipal UserDetails userDetails,
+
             @RequestParam String dtype,
             @RequestParam String title,
             @RequestParam(defaultValue = "10") int numOfRows,

@@ -66,10 +66,10 @@ public class SecurityConfig {
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**",
                                 "/api/devices/data", "/api/fcm/send", "/", "/favicon.ico",
                                 "/auth/**", "/auth/google/callback",
-                                 "/api/survey", "/api/devices/heartrate"
+                                 "/api/survey", "/api/devices/heartrate","/api/culture/events"
                         ).permitAll()
                         .requestMatchers(
-                                "/api/survey/select", "/api/survey/scenarios", "/api/short-recommend", "/api/haru/**","/api/tour/location","/api/culture/events",
+                                "/api/survey/select", "/api/survey/scenarios", "/api/short-recommend", "/api/haru/**","/api/tour/location",
                                 "/api/fcm/**", "/api/mypage/**", "/api/devices/latest", "/api/fcm/register","/api/crawl/**","/api/weekly/**","/api/monthly/**"
                         ).authenticated()
                         .anyRequest().authenticated())
