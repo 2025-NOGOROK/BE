@@ -24,7 +24,7 @@ public class CultureEventService {
         String datePath = (date == null || date.isEmpty()) ? "" : date;
 
         String apiUrl = String.format(
-                "http://openapi.seoul.go.kr:8088/%s/xml/culturalEventInfo/%d/%d/%s/%s/%s",
+                "http://openapi.seoul.go.kr:8088/%s/json/culturalEventInfo/%d/%d/%s/%s/%s",
                 serviceKey, startIndex, endIndex, codenamePath, titlePath, datePath
         );
 
