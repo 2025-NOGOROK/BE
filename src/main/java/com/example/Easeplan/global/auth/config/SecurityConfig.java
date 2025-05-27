@@ -69,7 +69,7 @@ public class SecurityConfig {
                                  "/api/survey", "/api/devices/heartrate","/api/culture/events"
                         ).permitAll()
                         .requestMatchers(
-                                "/api/survey/select", "/api/survey/scenarios", "/api/short-recommend", "/api/haru/**","/api/tour/location",
+                                "/api/survey/select", "/api/survey/scenarios", "/api/short-recommend", "/api/haru/**","/api/tour/location","/api/long-recommend/**",
                                 "/api/fcm/**", "/api/mypage/**", "/api/devices/latest", "/api/fcm/register","/api/crawl/**","/api/weekly/**","/api/monthly/**"
                         ).authenticated()
                         .anyRequest().authenticated())
