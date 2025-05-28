@@ -1,5 +1,6 @@
 package com.example.Easeplan.api.Recommend.Long.controller;
 
+import com.example.Easeplan.api.Recommend.Long.RecommendationResult.RecommendationResult;
 import com.example.Easeplan.api.Recommend.Long.dto.RecommendationOption;
 import com.example.Easeplan.api.Recommend.Long.service.LongService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -29,6 +30,20 @@ public class LongController {
         String email = userDetails.getUsername();
         return longService.getLongRecommendations(email);
     }
+
+    @Operation(
+            summary = "2번째날부터의 캘린더+추천 일정 시나리오 조회",
+            description = "오늘의 내 캘린더 일정과 추천 일정(오늘 행사하는 장르별 2개)을 합쳐서 반환합니다. "
+                    + "각 추천 일정은 실제 캘린더에 삽입되기 전 미리보기 상태입니다."
+    )
+    @GetMapping("/tomorrow")
+    public List<RecommendationResult> getTomorrowRecommendations(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        String email = userDetails.getUsername();
+        return longService.recommendForTomorrow(email);
+    }
+
 
 
 
