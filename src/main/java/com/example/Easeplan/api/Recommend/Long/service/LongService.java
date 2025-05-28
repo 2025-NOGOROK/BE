@@ -2,10 +2,15 @@ package com.example.Easeplan.api.Recommend.Long.service;
 
 import com.example.Easeplan.api.Calendar.dto.FormattedTimeSlot;
 import com.example.Easeplan.api.Calendar.service.GoogleCalendarService;
+import com.example.Easeplan.api.Recommend.Long.RecommendationResult.RecommendationResult;
 import com.example.Easeplan.api.Recommend.Long.dto.CulturalEventInfoRoot;
 import com.example.Easeplan.api.Recommend.Long.dto.Event;
 import com.example.Easeplan.api.Recommend.Long.dto.RecommendationOption;
+import com.example.Easeplan.api.Recommend.Long.dto.UserChoice;
 import com.example.Easeplan.api.Recommend.Long.repository.LongRepository;
+import com.example.Easeplan.api.Recommend.Long.repository.UserChoiceRepository;
+import com.example.Easeplan.api.SmartWatch.domain.HeartRate;
+import com.example.Easeplan.api.SmartWatch.repository.SmartwatchRepository;
 import com.example.Easeplan.global.auth.domain.User;
 import com.example.Easeplan.global.auth.repository.UserRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -13,7 +18,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -287,5 +297,85 @@ public class LongService {
             // 혹시 다른 포맷이면 그대로 반환(최소한 에러는 막음)
             return input;
         }
+    }
+
+
+
+
+
+    @Autowired
+    private UserChoiceRepository userChoiceRepository;
+    @Autowired
+    private SmartwatchRepository smartwatchRepository;
+
+    //**“내일(오늘) 추천 공연을 사용자에게 제공”**하는 메인 서비스 메서드
+    public List<RecommendationResult> recommendForTomorrow(String email) {
+        // 1. 전날 type="event" 일정 추출
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        String yesterdayStart = yesterday.atStartOfDay().toString();
+        String yesterdayEnd = yesterday.atTime(23, 59, 59).toString();
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<UserChoice> longChoices = userChoiceRepository
+                .findByUserAndTypeAndStartTimeBetween(user, "event", yesterdayStart, yesterdayEnd);
+
+        if (longChoices.isEmpty()) throw new RuntimeException("전날 긴 추천 없음");
+
+        UserChoice lastLong = longChoices.get(longChoices.size() - 1);
+        String title = lastLong.getEventTitle();
+        String genre = lastLong.getLabel();
+
+        // 2. 최근 스트레스 데이터 추출
+        Optional<HeartRate> recentOpt = smartwatchRepository.findTopByUserEmailOrderByStartTimeDesc(email);
+        Float stress = recentOpt.map(HeartRate::getStress).orElse(null);
+
+        // 3. Python 추천 서버 호출
+        return getRecommendations(title, genre, stress);
+    }
+
+    //“어제 사용자가 실제로 선택한 긴 추천(공연)”을 DB에서 찾아오는 서비스 메서드
+    public UserChoice getYesterdayLongChoice(String email) {
+        // 어제 날짜 계산
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        String yesterdayStart = yesterday.atStartOfDay().toString(); // "2025-05-27T00:00:00"
+        String yesterdayEnd = yesterday.atTime(23, 59, 59).toString(); // "2025-05-27T23:59:59"
+
+        // User 조회
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 어제 type="event" 일정 조회
+        List<UserChoice> longChoices = userChoiceRepository
+                .findByUserAndTypeAndStartTimeBetween(user, "event", yesterdayStart, yesterdayEnd);
+
+        if (longChoices.isEmpty()) throw new RuntimeException("어제 긴 추천 없음");
+
+        return longChoices.get(longChoices.size() - 1); // 가장 마지막 저장된 긴 추천
+    }
+
+
+
+
+    //“공연명(title), 장르(genre), 스트레스(stress)를 Python 추천 서버에 전달하고,
+    //추천 결과를 받아오는 서비스 메서드”
+    private List<RecommendationResult> getRecommendations(String title, String label, Float stress) {
+        String pythonUrl = "http://localhost:5000/vector-recommend";
+        Map<String, Object> request = new HashMap<>();
+        request.put("title", title);
+        request.put("label", label);
+        request.put("stress", stress);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(request, headers);
+
+        RestTemplate restTemplate = new RestTemplate();
+        ResponseEntity<RecommendationResult[]> response =
+                restTemplate.postForEntity(pythonUrl, entity, RecommendationResult[].class);
+
+        return Arrays.asList(response.getBody());
     }
 }
