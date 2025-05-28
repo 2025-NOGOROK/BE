@@ -15,6 +15,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpSession;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -114,10 +115,19 @@ public class MyPageController {
             헤더에 accessToken을 넣어주세요.<br>
             """)
     @DeleteMapping("/user/delete")
-    public ResponseEntity<String> deleteUser(@AuthenticationPrincipal User user, HttpSession session
-                                            ) {
-        myPageService.deleteUser(user.getEmail());
-        if (session != null) session.invalidate();
-        return ResponseEntity.ok("탈퇴 완료");
+    public ResponseEntity<String> deleteUser(@AuthenticationPrincipal User user, HttpSession session) {
+        if (user == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("인증된 사용자가 없습니다.");
+        }
+        try {
+            myPageService.deleteUser(user.getEmail());
+            if (session != null) session.invalidate();
+            return ResponseEntity.ok("탈퇴 완료");
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("서버 오류: " + e.getMessage());
+        }
     }
+
 }
