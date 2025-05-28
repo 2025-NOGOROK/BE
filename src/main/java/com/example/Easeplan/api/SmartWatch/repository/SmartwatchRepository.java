@@ -1,6 +1,7 @@
 package com.example.Easeplan.api.SmartWatch.repository;
 
 import com.example.Easeplan.api.SmartWatch.domain.HeartRate;
+import com.example.Easeplan.api.SmartWatch.dto.HeartRateRequest;
 import com.example.Easeplan.api.SmartWatch.service.HeartRateAnalyzer;
 import com.example.Easeplan.global.auth.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -23,6 +24,7 @@ public interface SmartwatchRepository extends JpaRepository<HeartRate, Long> {
             @Param("startTime") String startTime,
             @Param("endTime") String endTime
     );
+
 
 
 

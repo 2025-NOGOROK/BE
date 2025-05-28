@@ -3,10 +3,7 @@ package com.example.Easeplan.api.Survey.controller;
 import com.example.Easeplan.api.Calendar.dto.FormattedTimeSlot;
 import com.example.Easeplan.api.Calendar.dto.TimeSlot;
 import com.example.Easeplan.api.Calendar.service.GoogleCalendarService;
-import com.example.Easeplan.api.Scenario.dto.ScenarioResponse;
-import com.example.Easeplan.api.Scenario.record.ScenarioPack;
-import com.example.Easeplan.api.Scenario.record.ScheduleScenario;
-import com.example.Easeplan.api.Scenario.storage.ScenarioStorage;
+
 import com.example.Easeplan.api.ShortFlask.service.FlaskRecommendService;
 import com.example.Easeplan.api.Survey.domain.UserSurvey;
 import com.example.Easeplan.api.Survey.dto.UserSurveyRequest;
@@ -40,7 +37,7 @@ public class UserSurveyController {
     private final UserRepository userRepository;
     private final FlaskRecommendService flaskService;
     private final GoogleCalendarService calendarService;
-    private final ScenarioStorage scenarioStorage;
+
 
     // 1. 설문 저장
     @Operation(
