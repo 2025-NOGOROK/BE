@@ -360,8 +360,9 @@ public class LongService {
 
     //“공연명(title), 장르(genre), 스트레스(stress)를 Python 추천 서버에 전달하고,
     //추천 결과를 받아오는 서비스 메서드”
+    @Value("${flask.long-reco}")
+    private String pythonUrl;
     private List<RecommendationResult> getRecommendations(String title, String label, Float stress) {
-        String pythonUrl = "http://localhost:5000/vector-recommend";
         Map<String, Object> request = new HashMap<>();
         request.put("title", title);
         request.put("label", label);
