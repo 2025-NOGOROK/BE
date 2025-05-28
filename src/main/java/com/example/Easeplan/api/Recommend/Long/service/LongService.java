@@ -329,7 +329,7 @@ public class LongService {
 
         // 2. 최근 스트레스 데이터 추출
         Optional<HeartRate> recentOpt = smartwatchRepository.findTopByUserEmailOrderByStartTimeDesc(email);
-        Float stress = recentOpt.map(HeartRate::getStress).orElse(null);
+        Float stress = recentOpt.map(HeartRate::getAvg).orElse(null);
 
         // 3. Python 추천 서버 호출
         return getRecommendations(title, genre, stress);
