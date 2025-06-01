@@ -38,10 +38,12 @@ public class LongController {
     )
     @GetMapping("/tomorrow")
     public List<RecommendationResult> getTomorrowRecommendations(
-            @AuthenticationPrincipal UserDetails userDetails
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) Double latitude,
+            @RequestParam(required = false) Double longitude
     ) {
         String email = userDetails.getUsername();
-        return longService.recommendForTomorrow(email);
+        return longService.recommendForTomorrow(email, latitude, longitude);
     }
 
 
