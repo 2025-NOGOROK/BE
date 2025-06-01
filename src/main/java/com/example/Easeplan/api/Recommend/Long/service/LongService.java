@@ -309,7 +309,7 @@ public class LongService {
     private SmartwatchRepository smartwatchRepository;
 
     //**“내일(오늘) 추천 공연을 사용자에게 제공”**하는 메인 서비스 메서드
-    public List<RecommendationResult> recommendForTomorrow(String email) {
+    public List<RecommendationResult> recommendForTomorrow(String email,Double latitude, Double longitude) {
         // 1. 전날 type="event" 일정 추출
         LocalDate yesterday = LocalDate.now().minusDays(1);
         String yesterdayStart = yesterday.atStartOfDay().toString();
@@ -332,7 +332,7 @@ public class LongService {
         Float stress = recentOpt.map(HeartRate::getAvg).orElse(null);
 
         // 3. Python 추천 서버 호출
-        return getRecommendations(title, genre, stress);
+        return getRecommendations(title, genre, stress, latitude, longitude);
     }
 
     //“어제 사용자가 실제로 선택한 긴 추천(공연)”을 DB에서 찾아오는 서비스 메서드
@@ -362,11 +362,13 @@ public class LongService {
     //추천 결과를 받아오는 서비스 메서드”
     @Value("${flask.long-reco}")
     private String pythonUrl;
-    private List<RecommendationResult> getRecommendations(String title, String label, Float stress) {
+    private List<RecommendationResult> getRecommendations(String title, String label, Float stress, Double latitude, Double longitude) {
         Map<String, Object> request = new HashMap<>();
         request.put("title", title);
         request.put("label", label);
         request.put("stress", stress);
+        request.put("latitude", latitude);
+        request.put("longitude", longitude);
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
