@@ -1,5 +1,10 @@
 package com.example.Easeplan.api.Report.Week.dto;
 
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@NoArgsConstructor
 // DayWeatherDto.java
 public class DayWeatherDto {
     private String dayOfWeek; // "월", "화", ...
