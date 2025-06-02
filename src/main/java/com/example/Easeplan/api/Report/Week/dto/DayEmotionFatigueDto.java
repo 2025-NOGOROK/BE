@@ -1,5 +1,10 @@
 package com.example.Easeplan.api.Report.Week.dto;
 
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+
+@Getter
+@NoArgsConstructor
 public class DayEmotionFatigueDto {
     private String dayOfWeek; // "월", "화", ...
     private String emotion;   // 감정 설명 (null 가능)
