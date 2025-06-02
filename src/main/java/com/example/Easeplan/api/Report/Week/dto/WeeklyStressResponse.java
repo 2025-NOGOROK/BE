@@ -1,7 +1,11 @@
 package com.example.Easeplan.api.Report.Week.dto;
 
-import java.util.List;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
 
+import java.util.List;
+@Getter
+@NoArgsConstructor
 public class WeeklyStressResponse {
     private List<DayStressDto> days;
 
