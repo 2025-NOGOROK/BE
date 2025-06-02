@@ -29,15 +29,15 @@ public class FormattedTimeSlot {
 //        String hour = time.replace("시", "").trim();
 //        return LocalDate.now() + "T" + String.format("%02d:00:00", Integer.parseInt(hour)) + "+09:00";
 //    }
-private String toIsoDateTime(String time) {
-    // 날짜만 들어온 경우 (올데이 이벤트)
-    if (time.matches("\\d{4}-\\d{2}-\\d{2}")) {
-        // 이미 ISO-8601 날짜 형식이므로 그대로 반환하거나, 필요시 T00:00:00+09:00 등 붙이기
-        return time + "T00:00:00+09:00";
-    }
-    // "10시" 등 시간만 들어온 경우
-    String hour = time.replace("시", "").trim();
-    return LocalDate.now() + "T" + String.format("%02d:00:00", Integer.parseInt(hour)) + "+09:00";
-}
+//private String toIsoDateTime(String time) {
+//    // 날짜만 들어온 경우 (올데이 이벤트)
+//    if (time.matches("\\d{4}-\\d{2}-\\d{2}")) {
+//        // 이미 ISO-8601 날짜 형식이므로 그대로 반환하거나, 필요시 T00:00:00+09:00 등 붙이기
+//        return time + "T00:00:00+09:00";
+//    }
+//    // "10시" 등 시간만 들어온 경우
+//    String hour = time.replace("시", "").trim();
+//    return LocalDate.now() + "T" + String.format("%02d:00:00", Integer.parseInt(hour)) + "+09:00";
+//}
 
 }

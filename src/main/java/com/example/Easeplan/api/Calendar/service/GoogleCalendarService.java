@@ -15,6 +15,7 @@ import com.google.api.services.calendar.model.*;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.UserCredentials;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -181,20 +182,20 @@ public class GoogleCalendarService {
         List<TimeSlot> freeSlots = getFreeTimeSlots(user, date);
         List<FormattedTimeSlot> formattedSlots = new ArrayList<>();
         ZoneId seoulZone = ZoneId.of("Asia/Seoul");
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("H시");
+        DateTimeFormatter isoFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
 
         for (TimeSlot slot : freeSlots) {
             ZonedDateTime start = Instant.ofEpochMilli(slot.getStart().getValue()).atZone(seoulZone);
             ZonedDateTime end = Instant.ofEpochMilli(slot.getEnd().getValue()).atZone(seoulZone);
 
-            String endDisplay = (end.getHour() == 0 && start.getHour() > 0) ? "24시" : end.format(formatter);
             formattedSlots.add(new FormattedTimeSlot(
                     null,
                     null,
-                    start.format(formatter),
-                    endDisplay
+                    start.format(isoFormatter),
+                    end.format(isoFormatter)
             ));
         }
+
         return formattedSlots;
     }
 
