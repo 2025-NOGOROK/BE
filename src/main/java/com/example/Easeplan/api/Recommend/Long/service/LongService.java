@@ -16,6 +16,8 @@ import com.example.Easeplan.global.auth.repository.UserRepository;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
@@ -31,6 +33,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -41,47 +44,40 @@ public class LongService {
     private final LongRepository longRepository;
     private final GoogleCalendarService googleCalendarService; // 캘린더 연동 서비스 주입
     private final UserRepository userRepository; // 유저 조회용
+    private static final Logger log = LoggerFactory.getLogger(LongService.class);
 
 
     @Value("${culture.api.service-key}")
     private String serviceKey;
 
+
+
+    private LocalDate safeParseDate(String dateStr) {
+        try {
+            if (dateStr.contains("T")) return LocalDate.parse(dateStr.substring(0, 10));
+            if (dateStr.contains(" ")) return LocalDate.parse(dateStr.substring(0, 10));
+            return LocalDate.parse(dateStr);
+        } catch (DateTimeParseException e) {
+            log.error("날짜 파싱 실패: {}", dateStr);
+            return LocalDate.now();
+        }
+    }
+    // 5. 메인 서비스 메서드
     public List<RecommendationOption> getLongRecommendations(String email) {
         List<RecommendationOption> result = new ArrayList<>();
-
-        // 1. 구글 캘린더에서 오늘 일정 가져오기 (FormattedTimeSlot 리스트로)
         List<FormattedTimeSlot> calendarEvents = getTodayCalendarEvents(email);
-
-        // 2. 오늘의 빈 시간(1시간 이상) 구하기
         List<FormattedTimeSlot> availableSlots = getAvailableSlots(calendarEvents);
-
-        // 3. 오늘 날짜 전체 행사 불러오기 (JSON 파싱)
         List<Event> todayEvents = getTodayEvents();
-
-        // 4. 장르별로 2개 추천 (빈 시간에 1시간씩 배정, FormattedTimeSlot으로 생성)
         List<RecommendationOption> eventOptions = pickTwoDifferentGenres(todayEvents, availableSlots);
 
-        // 5. 캘린더 일정만 보여주는 시나리오
-        result.add(new RecommendationOption(
-                "calendar",
-                "추천X(캘린더)",
-                calendarEvents,
-                null,
-                null
-        ));
+        result.add(new RecommendationOption("calendar", "추천X(캘린더)", calendarEvents, null, null));
 
-        // 6. 장르별 추천 2개: 각각 "캘린더 일정 전체 + 추천 일정 1개"로 반환
         for (RecommendationOption rec : eventOptions) {
+            @SuppressWarnings("unchecked")
+            List<FormattedTimeSlot> data = (List<FormattedTimeSlot>) rec.getData();
             List<FormattedTimeSlot> combined = new ArrayList<>(calendarEvents);
-            combined.add((FormattedTimeSlot) rec.getData());
-
-            result.add(new RecommendationOption(
-                    "event",
-                    rec.getLabel(),
-                    combined,
-                    rec.getStartTime(),
-                    rec.getEndTime()
-            ));
+            combined.addAll(data);
+            result.add(new RecommendationOption("event", rec.getLabel(), combined, rec.getStartTime(), rec.getEndTime()));
         }
 
         return result;
@@ -93,104 +89,78 @@ public class LongService {
     // === 아래는 예시 로직, 실제 구현 필요 ===
 
     // 구글 캘린더에서 오늘 일정 불러오기 (FormattedTimeSlot 리스트)
+    // 1. 오늘의 캘린더 일정 가져오기
     private List<FormattedTimeSlot> getTodayCalendarEvents(String email) {
-        // 1. 유저 조회
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // 2. 오늘 날짜 범위 계산 (RFC3339 포맷)
+        User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
         LocalDate today = LocalDate.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
         ZoneId zone = ZoneId.of("Asia/Seoul");
-        String timeMin = today.atStartOfDay(zone).format(formatter); // 예: "2025-05-27T00:00:00+09:00"
-        String timeMax = today.plusDays(1).atStartOfDay(zone).format(formatter); // 예: "2025-05-28T00:00:00+09:00"
+        String timeMin = today.atStartOfDay(zone).format(formatter);
+        String timeMax = today.plusDays(1).atStartOfDay(zone).format(formatter);
+
         try {
             return googleCalendarService.getFormattedEvents(user, "primary", timeMin, timeMax);
         } catch (Exception e) {
-            // 예외 처리: 로그를 남기고, 빈 리스트 반환 또는 적절한 예외 던지기
             e.printStackTrace();
-            return new ArrayList<>(); // 또는 throw new RuntimeException("캘린더 조회 실패", e);
+            return new ArrayList<>();
         }
     }
 
 
     // 오늘의 빈 시간(1시간 이상) 구하기 (FormattedTimeSlot 리스트)
+    // 2. 오늘의 빈 시간(1시간 이상) 구하기 (08:00~22:00)
+    // 1. 빈 시간 계산 시 08:00 이전 시간 제외하도록 조정 (이미 반영돼 있지만 재확인)
     private List<FormattedTimeSlot> getAvailableSlots(List<FormattedTimeSlot> calendarEvents) {
         LocalDate today = LocalDate.now();
         LocalTime dayStart = LocalTime.of(8, 0);
         LocalTime dayEnd = LocalTime.of(22, 0);
-
         List<LocalTime[]> occupied = calendarEvents.stream()
-                .map(e -> new LocalTime[]{
-                        ZonedDateTime.parse(e.getStartTime()).toLocalTime(),
-                        ZonedDateTime.parse(e.getEndTime()).toLocalTime()
-                })
+                .map(e -> new LocalTime[]{ZonedDateTime.parse(e.getStartTime()).toLocalTime(), ZonedDateTime.parse(e.getEndTime()).toLocalTime()})
                 .sorted(Comparator.comparing(a -> a[0]))
                 .collect(Collectors.toList());
-
 
         List<FormattedTimeSlot> slots = new ArrayList<>();
         LocalTime prevEnd = dayStart;
         for (LocalTime[] occ : occupied) {
-            if (prevEnd.isBefore(occ[0]) && Duration.between(prevEnd, occ[0]).toMinutes() >= 60) {
-                slots.add(new FormattedTimeSlot(
-                        "추천 가능 시간", "캘린더 빈 시간",
-                        LocalDateTime.of(today, prevEnd).toString(),
-                        LocalDateTime.of(today, prevEnd.plusHours(1)).toString()
-                ));
+            while (!prevEnd.plusHours(1).isAfter(occ[0])) {
+                slots.add(new FormattedTimeSlot("추천 가능 시간", "캘린더 빈 시간",
+                        LocalDateTime.of(today, prevEnd).atZone(ZoneId.systemDefault()).toString(),
+                        LocalDateTime.of(today, prevEnd.plusHours(1)).atZone(ZoneId.systemDefault()).toString()));
+                prevEnd = prevEnd.plusHours(1);
             }
             prevEnd = occ[1].isAfter(prevEnd) ? occ[1] : prevEnd;
         }
-        if (prevEnd.isBefore(dayEnd) && Duration.between(prevEnd, dayEnd).toMinutes() >= 60) {
-            slots.add(new FormattedTimeSlot(
-                    "추천 가능 시간", "캘린더 빈 시간",
-                    LocalDateTime.of(today, prevEnd).toString(),
-                    LocalDateTime.of(today, prevEnd.plusHours(1)).toString()
-            ));
+        while (!prevEnd.plusHours(1).isAfter(dayEnd)) {
+            slots.add(new FormattedTimeSlot("추천 가능 시간", "캘린더 빈 시간",
+                    LocalDateTime.of(today, prevEnd).atZone(ZoneId.systemDefault()).toString(),
+                    LocalDateTime.of(today, prevEnd.plusHours(1)).atZone(ZoneId.systemDefault()).toString()));
+            prevEnd = prevEnd.plusHours(1);
         }
         return slots;
     }
 
+
     // 오늘 날짜 전체 행사 불러오기 (JSON 파싱)
+    // 3. 오늘 날짜 전체 행사 불러오기 (JSON 파싱)
     private List<Event> getTodayEvents() {
         try {
             String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-            String apiUrl = String.format(
-                    "http://openapi.seoul.go.kr:8088/%s/json/culturalEventInfo/1/1000/%%20/%%20/%s",
-                    serviceKey, today
-
-            );
-            URL url = new URL(apiUrl);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            String apiUrl = String.format("http://openapi.seoul.go.kr:8088/%s/json/culturalEventInfo/1/1000/%%20/%%20/%s", serviceKey, today);
+            HttpURLConnection conn = (HttpURLConnection) new URL(apiUrl).openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Content-type", "application/json");
 
-            BufferedReader rd;
-            if (conn.getResponseCode() >= 200 && conn.getResponseCode() <= 300) {
-                rd = new BufferedReader(new InputStreamReader(conn.getInputStream()));
-            } else {
-                rd = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
-            }
+            BufferedReader rd = new BufferedReader(new InputStreamReader(
+                    conn.getResponseCode() >= 200 && conn.getResponseCode() <= 300 ? conn.getInputStream() : conn.getErrorStream()));
 
             StringBuilder sb = new StringBuilder();
             String line;
-            while ((line = rd.readLine()) != null) {
-                sb.append(line);
-            }
+            while ((line = rd.readLine()) != null) sb.append(line);
             rd.close();
             conn.disconnect();
 
-            ObjectMapper mapper = new ObjectMapper();
-            CulturalEventInfoRoot root = mapper.readValue(sb.toString(), CulturalEventInfoRoot.class);
-            List<Event> events = root.getCulturalEventInfo().getRow();
-
-            // === 여기에 sout 추가 ===
-            System.out.println("오늘 행사 개수: " + (events == null ? 0 : events.size()));
-            if (events != null && !events.isEmpty()) {
-                System.out.println("첫번째 행사: " + events.get(0).getCodename() + " / " + events.get(0).getTitle());
-            }
-
-            return events;
+            CulturalEventInfoRoot root = new ObjectMapper().readValue(sb.toString(), CulturalEventInfoRoot.class);
+            return root.getCulturalEventInfo().getRow();
         } catch (Exception e) {
             e.printStackTrace();
             return new ArrayList<>();
@@ -198,42 +168,74 @@ public class LongService {
     }
 
     // 장르별로 2개 추천 (빈 시간에 1시간씩 배정, FormattedTimeSlot으로 생성)
+    // 4. 장르별로 2개 추천 (전체 빈 시간대 중 1시간만 긴 추천에 배정, 장소 description)
+
+    // 2. 추천 시간 선택 시 시작 시간이 반드시 08:00 이후가 되도록 필터
+// 장르별로 2개 추천 (빈 시간에 1시간씩 배정, FormattedTimeSlot으로 생성)
+// 수정할 메서드만 아래에 다시 작성
+// pickTwoDifferentGenres 메서드 수정 버전
     private List<RecommendationOption> pickTwoDifferentGenres(List<Event> events, List<FormattedTimeSlot> slots) {
-        Map<String, List<Event>> genreMap = events.stream()
+        LocalDate today = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+        ZoneId zone = ZoneId.of("Asia/Seoul");
+
+        List<Event> todayEvents = events.stream()
+                .filter(e -> !today.isBefore(safeParseDate(e.getStrtdate())) && !today.isAfter(safeParseDate(e.getEndDate())))
+                .collect(Collectors.toList());
+
+        List<FormattedTimeSlot> oneHourSlots = slots.stream()
+                .filter(slot -> {
+                    ZonedDateTime start = ZonedDateTime.parse(slot.getStartTime());
+                    ZonedDateTime end = ZonedDateTime.parse(slot.getEndTime());
+                    return Duration.between(start, end).toHours() >= 1 &&
+                            start.toLocalTime().isAfter(LocalTime.of(7, 59)) &&
+                            end.toLocalTime().isBefore(LocalTime.of(22, 1));
+                })
+                .collect(Collectors.toList());
+
+        Map<String, List<Event>> genreMap = todayEvents.stream()
                 .collect(Collectors.groupingBy(Event::getCodename));
-        List<String> genreKeys = new ArrayList<>(genreMap.keySet());
-        Collections.shuffle(genreKeys);
+        Collections.shuffle(new ArrayList<>(genreMap.keySet()));
 
         List<RecommendationOption> options = new ArrayList<>();
-        int slotIdx = 0;
-        int genreCount = 0;
-        // 슬롯이 1개여도, 추천 2개(서로 다른 장르) 생성
-        if (!slots.isEmpty()) {
-            FormattedTimeSlot slot = slots.get(0); // 항상 첫 번째 슬롯 사용
-            for (String genre : genreKeys) {
-                List<Event> genreEvents = genreMap.get(genre);
-                if (!genreEvents.isEmpty()) {
-                    Event event = genreEvents.get(0);
-                    FormattedTimeSlot eventSlot = new FormattedTimeSlot(
-                            event.getTitle(),
-                            event.getPlace(),
-                            slot.getStartTime(),
-                            slot.getEndTime()
-                    );
-                    options.add(new RecommendationOption(
-                            "event",
-                            genre,
-                            eventSlot,
-                            slot.getStartTime(),
-                            slot.getEndTime()
-                    ));
-                    genreCount++;
-                }
-                if (genreCount == 2) break; // 2개만 추천
-            }
+        int count = 0;
+        for (String genre : genreMap.keySet()) {
+            if (count >= 2 || count >= oneHourSlots.size()) break;
+            List<Event> genreEvents = genreMap.get(genre);
+            if (genreEvents.isEmpty()) continue;
+
+            Event event = genreEvents.get(0);
+            FormattedTimeSlot slot = oneHourSlots.get(count);
+
+            ZonedDateTime slotStart = ZonedDateTime.parse(slot.getStartTime());
+            ZonedDateTime recoStart = slotStart;
+            ZonedDateTime recoEnd = recoStart.plusHours(1);
+
+            String formattedStart = recoStart.withZoneSameInstant(zone).format(formatter);
+            String formattedEnd = recoEnd.withZoneSameInstant(zone).format(formatter);
+
+            FormattedTimeSlot eventSlot = new FormattedTimeSlot(
+                    event.getTitle(), event.getPlace(), formattedStart, formattedEnd);
+
+            options.add(new RecommendationOption(
+                    "event", genre, Collections.singletonList(eventSlot), formattedStart, formattedEnd));
+
+            count++;
         }
         return options;
     }
+
+
+
+
+
+
+
+
+
+
+
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -309,8 +311,7 @@ public class LongService {
     private SmartwatchRepository smartwatchRepository;
 
     //**“내일(오늘) 추천 공연을 사용자에게 제공”**하는 메인 서비스 메서드
-    public List<RecommendationResult> recommendForTomorrow(String email,Double latitude, Double longitude) {
-        // 1. 전날 type="event" 일정 추출
+    public List<RecommendationOption> recommendForTomorrow(String email, Double latitude, Double longitude) {
         LocalDate yesterday = LocalDate.now().minusDays(1);
         String yesterdayStart = yesterday.atStartOfDay().toString();
         String yesterdayEnd = yesterday.atTime(23, 59, 59).toString();
@@ -327,13 +328,88 @@ public class LongService {
         String title = lastLong.getEventTitle();
         String genre = lastLong.getLabel();
 
-        // 2. 최근 스트레스 데이터 추출
         Optional<HeartRate> recentOpt = smartwatchRepository.findTopByUserEmailOrderByStartTimeDesc(email);
         Float stress = recentOpt.map(HeartRate::getAvg).orElse(null);
 
-        // 3. Python 추천 서버 호출
-        return getRecommendations(title, genre, stress, latitude, longitude);
+        List<RecommendationResult> recommends = getRecommendations(title, genre, stress, latitude, longitude);
+
+        LocalDate today = LocalDate.now();
+        String timeMin = today.atStartOfDay(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"));
+        String timeMax = today.plusDays(1).atStartOfDay(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"));
+
+        List<FormattedTimeSlot> calendarEvents;
+        try {
+            calendarEvents = googleCalendarService.getFormattedEvents(user, "primary", timeMin, timeMax);
+        } catch (Exception e) {
+            calendarEvents = new ArrayList<>();
+        }
+
+        List<FormattedTimeSlot> availableSlots;
+        try {
+            availableSlots = googleCalendarService.getFormattedFreeTimeSlots(user, today);
+        } catch (Exception e) {
+            availableSlots = new ArrayList<>();
+        }
+
+        if (availableSlots.isEmpty()) {
+            throw new RuntimeException("추천을 배정할 수 있는 빈 시간대가 1개 이상 필요합니다.");
+        }
+
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+        ZoneId zone = ZoneId.of("Asia/Seoul");
+
+        List<RecommendationOption> scenarios = new ArrayList<>();
+
+        // 1) 캘린더만
+        scenarios.add(new RecommendationOption(
+                "calendar",
+                "추천X(캘린더)",
+                new ArrayList<>(calendarEvents),
+                null,
+                null
+        ));
+
+        for (int i = 0; i < 2 && i < recommends.size() && i < availableSlots.size(); i++) {
+            FormattedTimeSlot slot = availableSlots.get(i);
+
+            ZonedDateTime slotStart = ZonedDateTime.parse(slot.getStartTime());
+            ZonedDateTime slotEnd = ZonedDateTime.parse(slot.getEndTime());
+
+            long slotMinutes = Duration.between(slotStart, slotEnd).toMinutes();
+            long offset = slotMinutes > 60 ? new Random().nextInt((int)(slotMinutes - 60 + 1)) : 0;
+
+            ZonedDateTime recoStart = slotStart.plusMinutes(offset);
+            ZonedDateTime recoEnd = recoStart.plusHours(1);
+
+            String formattedStart = recoStart.withZoneSameInstant(zone).format(formatter);
+            String formattedEnd = recoEnd.withZoneSameInstant(zone).format(formatter);
+
+            FormattedTimeSlot recommendedSlot = new FormattedTimeSlot(
+                    recommends.get(i).getTitle(),
+                    recommends.get(i).getDescription(),
+                    formattedStart,
+                    formattedEnd
+            );
+
+            List<FormattedTimeSlot> combined = new ArrayList<>(calendarEvents);
+            combined.add(recommendedSlot);
+
+            scenarios.add(new RecommendationOption(
+                    "event",
+                    recommends.get(i).getLabel(),
+                    combined,
+                    formattedStart,
+                    formattedEnd
+            ));
+        }
+
+
+        return scenarios;
     }
+
+
+
+
 
     //“어제 사용자가 실제로 선택한 긴 추천(공연)”을 DB에서 찾아오는 서비스 메서드
     public UserChoice getYesterdayLongChoice(String email) {
