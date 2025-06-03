@@ -68,7 +68,10 @@ public class LongService {
         List<FormattedTimeSlot> calendarEvents = getTodayCalendarEvents(email);
         List<FormattedTimeSlot> availableSlots = getAvailableSlots(calendarEvents);
         List<Event> todayEvents = getTodayEvents();
-        List<RecommendationOption> eventOptions = pickTwoDifferentGenres(todayEvents, availableSlots);
+
+        // ✅ 여기만 수정! pickTwoDifferentGenres -> pickTwoDifferentGenresWithDifferentSlots
+        List<RecommendationOption> eventOptions = pickTwoDifferentGenresWithDifferentSlots(todayEvents, availableSlots);
+//        List<RecommendationOption> eventOptions = pickTwoDifferentGenres(todayEvents, availableSlots);
 
         result.add(new RecommendationOption("calendar", "추천X(캘린더)", calendarEvents, null, null));
 
@@ -287,6 +290,76 @@ public class LongService {
 
         return options;
     }
+
+
+    private List<RecommendationOption> pickTwoDifferentGenresWithDifferentSlots(List<Event> events, List<FormattedTimeSlot> slots) {
+        LocalDate today = LocalDate.now();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+        ZoneId zone = ZoneId.of("Asia/Seoul");
+
+        List<Event> todayEvents = events.stream()
+                .filter(e -> !today.isBefore(safeParseDate(e.getStrtdate())) && !today.isAfter(safeParseDate(e.getEndDate())))
+                .collect(Collectors.toList());
+
+        List<FormattedTimeSlot> validSlots = slots.stream()
+                .filter(slot -> {
+                    try {
+                        ZonedDateTime start = ZonedDateTime.parse(slot.getStartTime());
+                        ZonedDateTime end = ZonedDateTime.parse(slot.getEndTime());
+                        return !start.toLocalTime().isBefore(LocalTime.of(8, 0))
+                                && !end.toLocalTime().isAfter(LocalTime.of(22, 0))
+                                && Duration.between(start, end).toMinutes() >= 60;
+                    } catch (Exception e) {
+                        return false;
+                    }
+                }).collect(Collectors.toList());
+
+        if (validSlots.size() < 2) return new ArrayList<>();
+
+        Map<String, List<Event>> genreMap = todayEvents.stream()
+                .collect(Collectors.groupingBy(Event::getCodename));
+
+        List<String> shuffledGenres = new ArrayList<>(genreMap.keySet());
+        Collections.shuffle(shuffledGenres);
+
+        List<RecommendationOption> options = new ArrayList<>();
+        int genreIndex = 0;
+
+        for (int i = 0; i < 2 && genreIndex < shuffledGenres.size() && i < validSlots.size(); genreIndex++) {
+            String genre = shuffledGenres.get(genreIndex);
+            List<Event> genreEvents = genreMap.get(genre);
+            if (genreEvents == null || genreEvents.isEmpty()) continue;
+
+            Event event = genreEvents.get(0);
+            FormattedTimeSlot slot = validSlots.get(i); // 각 추천에 서로 다른 슬롯 사용
+
+            ZonedDateTime recoStart = ZonedDateTime.parse(slot.getStartTime());
+            ZonedDateTime recoEnd = recoStart.plusHours(1);
+
+            String formattedStart = recoStart.withZoneSameInstant(zone).format(formatter);
+            String formattedEnd = recoEnd.withZoneSameInstant(zone).format(formatter);
+
+            FormattedTimeSlot eventSlot = new FormattedTimeSlot(
+                    event.getTitle(),
+                    event.getPlace(),
+                    formattedStart,
+                    formattedEnd
+            );
+
+            options.add(new RecommendationOption(
+                    "event",
+                    genre,
+                    Collections.singletonList(eventSlot),
+                    formattedStart,
+                    formattedEnd
+            ));
+
+            i++; // 슬롯 인덱스는 무조건 2번만 돈다
+        }
+
+        return options;
+    }
+
 
 
 
