@@ -487,11 +487,27 @@ public class LongService {
         List<FormattedTimeSlot> availableSlots;
         try {
             availableSlots = googleCalendarService.getFormattedFreeTimeSlots(user, today);
+
+            // 📌 캘린더가 비어 있는 경우 전체 자유시간 추가
+            if (availableSlots.isEmpty()) {
+                availableSlots = new ArrayList<>();
+                ZoneId zone = ZoneId.of("Asia/Seoul");
+                for (int i = 8; i < 22; i++) {
+                    ZonedDateTime start = today.atTime(i, 0).atZone(zone);
+                    ZonedDateTime end = start.plusHours(1);
+                    availableSlots.add(new FormattedTimeSlot(
+                            "추천 가능 시간",
+                            "전체 자유시간",
+                            start.toString(),
+                            end.toString()
+                    ));
+                }
+            }
         } catch (Exception e) {
             availableSlots = new ArrayList<>();
         }
 
-        // 필터: 08:00 ~ 22:00 사이의 1시간 이상 슬롯만 유지
+        // ⛔ 1시간 이상 & 08~22시 사이만 필터
         List<FormattedTimeSlot> filteredSlots = availableSlots.stream()
                 .map(slot -> {
                     try {
@@ -507,8 +523,19 @@ public class LongService {
                 .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
+        // ❗빈 시간이 없으면 캘린더만 반환
         if (filteredSlots.isEmpty()) {
-            throw new RuntimeException("추천을 배정할 수 있는 빈 시간대가 1개 이상 필요합니다.");
+            // 👉 fallback: 기본 추천 시간 10:00~11:00
+            ZonedDateTime start = LocalDate.now().atTime(10, 0).atZone(ZoneId.of("Asia/Seoul"));
+            ZonedDateTime end = start.plusHours(1);
+
+            FormattedTimeSlot fallbackSlot = new FormattedTimeSlot(
+                    "기본 추천 시간",
+                    "기본",
+                    start.toString(),
+                    end.toString()
+            );
+            filteredSlots = List.of(fallbackSlot);
         }
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
@@ -561,6 +588,7 @@ public class LongService {
 
         return scenarios;
     }
+
 
 
 
