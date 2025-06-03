@@ -17,6 +17,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LongController {
 
+
     private final LongService longService;
     @Operation(
             summary = "처음 캘린더+추천 일정 시나리오 조회",
