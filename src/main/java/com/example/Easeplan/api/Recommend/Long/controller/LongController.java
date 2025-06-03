@@ -32,15 +32,17 @@ public class LongController {
     }
 
     @Operation(
-            summary = "2번째날부터의 캘린더+추천 일정 시나리오 조회",
-            description = "오늘의 내 캘린더 일정과 추천 일정(오늘 행사하는 장르별 2개)을 합쳐서 반환합니다. "
-                    + "각 추천 일정은 실제 캘린더에 삽입되기 전 미리보기 상태입니다."
+            summary = "전날 선택 기반 추천 일정 + 오늘 캘린더 시나리오 조회",
+            description = "전날 사용자가 선택한 공연의 장르와 위치, 스트레스 정보를 기반으로 오늘의 추천 일정을 최대 2개 생성하여 "
+                    + "오늘의 내 캘린더 일정과 함께 시나리오 형태로 반환합니다. "
+                    + "추천 일정은 실제 캘린더에 삽입되기 전 미리보기 상태이며, "
+                    + "위도(latitude)와 경도(longitude)는 사용자 현재 위치 기반 추천을 위해 필수로 전달됩니다."
     )
     @GetMapping("/tomorrow")
     public List<RecommendationOption> getTomorrowRecommendations(
             @AuthenticationPrincipal UserDetails userDetails,
-            @RequestParam(required = false) Double latitude,
-            @RequestParam(required = false) Double longitude
+            @RequestParam(required = true) Double latitude,
+            @RequestParam(required = true) Double longitude
     ) {
         String email = userDetails.getUsername();
         return longService.recommendForTomorrow(email, latitude, longitude);
