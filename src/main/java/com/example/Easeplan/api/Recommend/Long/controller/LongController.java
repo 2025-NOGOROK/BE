@@ -10,6 +10,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 @Tag(name = "긴 추천", description = "공연예술 긴 추천 API")
 @RestController
@@ -29,8 +32,12 @@ public class LongController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         String email = userDetails.getUsername();
-        return longService.getLongRecommendations(email);
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));  // ✅ 한국 시간 기준
+        System.out.println("전달된 날짜: " + today);
+
+        return longService.getLongRecommendations(email, today);   // ✅ 이걸 전달해야 함
     }
+
 
     @Operation(
             summary = "전날 선택 기반 추천 일정 + 오늘 캘린더 시나리오 조회",
