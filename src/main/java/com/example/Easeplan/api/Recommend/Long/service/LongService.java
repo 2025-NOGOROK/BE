@@ -112,30 +112,62 @@ public class LongService {
     // 1. 빈 시간 계산 시 08:00 이전 시간 제외하도록 조정 (이미 반영돼 있지만 재확인)
     private List<FormattedTimeSlot> getAvailableSlots(List<FormattedTimeSlot> calendarEvents) {
         LocalDate today = LocalDate.now();
+        ZoneId zone = ZoneId.of("Asia/Seoul");
+
         LocalTime dayStart = LocalTime.of(8, 0);
         LocalTime dayEnd = LocalTime.of(22, 0);
+
+        // 1. 08:00~22:00 안에 포함된 일정만 필터링
         List<LocalTime[]> occupied = calendarEvents.stream()
-                .map(e -> new LocalTime[]{ZonedDateTime.parse(e.getStartTime()).toLocalTime(), ZonedDateTime.parse(e.getEndTime()).toLocalTime()})
+                .map(e -> {
+                    ZonedDateTime start = ZonedDateTime.parse(e.getStartTime());
+                    ZonedDateTime end = ZonedDateTime.parse(e.getEndTime());
+                    return new LocalTime[] { start.toLocalTime(), end.toLocalTime() };
+                })
+                .filter(times -> !(times[1].isBefore(dayStart) || times[0].isAfter(dayEnd))) // 범위 밖 일정 제거
+                .map(times -> {
+                    // 시작 시간이 08:00보다 이르면 08:00으로 조정, 끝 시간이 22:00보다 늦으면 22:00으로 조정
+                    LocalTime start = times[0].isBefore(dayStart) ? dayStart : times[0];
+                    LocalTime end = times[1].isAfter(dayEnd) ? dayEnd : times[1];
+                    return new LocalTime[] { start, end };
+                })
                 .sorted(Comparator.comparing(a -> a[0]))
                 .collect(Collectors.toList());
 
         List<FormattedTimeSlot> slots = new ArrayList<>();
         LocalTime prevEnd = dayStart;
+
         for (LocalTime[] occ : occupied) {
+            // 빈 구간을 1시간 단위로 채움
             while (!prevEnd.plusHours(1).isAfter(occ[0])) {
-                slots.add(new FormattedTimeSlot("추천 가능 시간", "캘린더 빈 시간",
-                        LocalDateTime.of(today, prevEnd).atZone(ZoneId.systemDefault()).toString(),
-                        LocalDateTime.of(today, prevEnd.plusHours(1)).atZone(ZoneId.systemDefault()).toString()));
+                LocalDateTime slotStart = LocalDateTime.of(today, prevEnd);
+                LocalDateTime slotEnd = slotStart.plusHours(1);
+
+                slots.add(new FormattedTimeSlot(
+                        "추천 가능 시간",
+                        "캘린더 빈 시간",
+                        slotStart.atZone(zone).toString(),
+                        slotEnd.atZone(zone).toString()
+                ));
                 prevEnd = prevEnd.plusHours(1);
             }
             prevEnd = occ[1].isAfter(prevEnd) ? occ[1] : prevEnd;
         }
+
+        // 마지막 일정 이후 ~ 22시까지
         while (!prevEnd.plusHours(1).isAfter(dayEnd)) {
-            slots.add(new FormattedTimeSlot("추천 가능 시간", "캘린더 빈 시간",
-                    LocalDateTime.of(today, prevEnd).atZone(ZoneId.systemDefault()).toString(),
-                    LocalDateTime.of(today, prevEnd.plusHours(1)).atZone(ZoneId.systemDefault()).toString()));
+            LocalDateTime slotStart = LocalDateTime.of(today, prevEnd);
+            LocalDateTime slotEnd = slotStart.plusHours(1);
+
+            slots.add(new FormattedTimeSlot(
+                    "추천 가능 시간",
+                    "캘린더 빈 시간",
+                    slotStart.atZone(zone).toString(),
+                    slotEnd.atZone(zone).toString()
+            ));
             prevEnd = prevEnd.plusHours(1);
         }
+
         return slots;
     }
 
@@ -174,56 +206,91 @@ public class LongService {
 // 장르별로 2개 추천 (빈 시간에 1시간씩 배정, FormattedTimeSlot으로 생성)
 // 수정할 메서드만 아래에 다시 작성
 // pickTwoDifferentGenres 메서드 수정 버전
+// pickTwoDifferentGenres 전체 코드 수정 버전 (08:00~22:00 추천 시간 제한 포함)
+// LongService.java 안의 pickTwoDifferentGenres 메서드 수정 버전
     private List<RecommendationOption> pickTwoDifferentGenres(List<Event> events, List<FormattedTimeSlot> slots) {
         LocalDate today = LocalDate.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
         ZoneId zone = ZoneId.of("Asia/Seoul");
 
+        // 오늘 날짜에 해당하는 행사만 필터링
         List<Event> todayEvents = events.stream()
                 .filter(e -> !today.isBefore(safeParseDate(e.getStrtdate())) && !today.isAfter(safeParseDate(e.getEndDate())))
                 .collect(Collectors.toList());
 
+        // 08:00~22:00 내의 1시간 이상 빈 시간만 필터링
         List<FormattedTimeSlot> oneHourSlots = slots.stream()
-                .filter(slot -> {
-                    ZonedDateTime start = ZonedDateTime.parse(slot.getStartTime());
-                    ZonedDateTime end = ZonedDateTime.parse(slot.getEndTime());
-                    return Duration.between(start, end).toHours() >= 1 &&
-                            start.toLocalTime().isAfter(LocalTime.of(7, 59)) &&
-                            end.toLocalTime().isBefore(LocalTime.of(22, 1));
+                .map(slot -> {
+                    try {
+                        ZonedDateTime start = ZonedDateTime.parse(slot.getStartTime());
+                        ZonedDateTime end = ZonedDateTime.parse(slot.getEndTime());
+
+                        if (Duration.between(start, end).toMinutes() < 60) return null;
+                        if (start.toLocalTime().isBefore(LocalTime.of(8, 0)) || end.toLocalTime().isAfter(LocalTime.of(22, 0)))
+                            return null;
+
+                        return slot;
+                    } catch (Exception e) {
+                        return null;
+                    }
                 })
+                .filter(Objects::nonNull)
                 .collect(Collectors.toList());
 
+        // 추천할 시간 슬롯이 없는 경우 빈 리스트 반환
+        if (oneHourSlots.isEmpty()) return new ArrayList<>();
+
+        // 하나의 추천 시간만 사용 (두 추천을 동일 시간에)
+        FormattedTimeSlot sharedSlot = oneHourSlots.get(0);
+
+        // 장르별로 묶기
         Map<String, List<Event>> genreMap = todayEvents.stream()
                 .collect(Collectors.groupingBy(Event::getCodename));
-        Collections.shuffle(new ArrayList<>(genreMap.keySet()));
+
+        List<String> shuffledGenres = new ArrayList<>(genreMap.keySet());
+        Collections.shuffle(shuffledGenres);
 
         List<RecommendationOption> options = new ArrayList<>();
         int count = 0;
-        for (String genre : genreMap.keySet()) {
-            if (count >= 2 || count >= oneHourSlots.size()) break;
+
+        for (String genre : shuffledGenres) {
+            if (count >= 2) break;
+
             List<Event> genreEvents = genreMap.get(genre);
-            if (genreEvents.isEmpty()) continue;
+            if (genreEvents == null || genreEvents.isEmpty()) continue;
 
-            Event event = genreEvents.get(0);
-            FormattedTimeSlot slot = oneHourSlots.get(count);
+            Event event = genreEvents.get(0); // 장르 내 첫 번째 이벤트 선택
 
-            ZonedDateTime slotStart = ZonedDateTime.parse(slot.getStartTime());
-            ZonedDateTime recoStart = slotStart;
+            ZonedDateTime recoStart = ZonedDateTime.parse(sharedSlot.getStartTime());
             ZonedDateTime recoEnd = recoStart.plusHours(1);
 
             String formattedStart = recoStart.withZoneSameInstant(zone).format(formatter);
             String formattedEnd = recoEnd.withZoneSameInstant(zone).format(formatter);
 
             FormattedTimeSlot eventSlot = new FormattedTimeSlot(
-                    event.getTitle(), event.getPlace(), formattedStart, formattedEnd);
+                    event.getTitle(),
+                    event.getPlace(),
+                    formattedStart,
+                    formattedEnd
+            );
 
             options.add(new RecommendationOption(
-                    "event", genre, Collections.singletonList(eventSlot), formattedStart, formattedEnd));
+                    "event",
+                    genre,
+                    Collections.singletonList(eventSlot),
+                    formattedStart,
+                    formattedEnd
+            ));
 
             count++;
         }
+
         return options;
     }
+
+
+
+
 
 
 
@@ -351,7 +418,23 @@ public class LongService {
             availableSlots = new ArrayList<>();
         }
 
-        if (availableSlots.isEmpty()) {
+        // 필터: 08:00 ~ 22:00 사이의 1시간 이상 슬롯만 유지
+        List<FormattedTimeSlot> filteredSlots = availableSlots.stream()
+                .map(slot -> {
+                    try {
+                        ZonedDateTime start = ZonedDateTime.parse(slot.getStartTime());
+                        ZonedDateTime end = ZonedDateTime.parse(slot.getEndTime());
+                        if (start.toLocalTime().isBefore(LocalTime.of(8, 0)) || end.toLocalTime().isAfter(LocalTime.of(22, 0))) return null;
+                        if (Duration.between(start, end).toMinutes() < 60) return null;
+                        return slot;
+                    } catch (Exception e) {
+                        return null;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        if (filteredSlots.isEmpty()) {
             throw new RuntimeException("추천을 배정할 수 있는 빈 시간대가 1개 이상 필요합니다.");
         }
 
@@ -360,7 +443,7 @@ public class LongService {
 
         List<RecommendationOption> scenarios = new ArrayList<>();
 
-        // 1) 캘린더만
+        // 캘린더만
         scenarios.add(new RecommendationOption(
                 "calendar",
                 "추천X(캘린더)",
@@ -369,9 +452,9 @@ public class LongService {
                 null
         ));
 
-        for (int i = 0; i < 2 && i < recommends.size() && i < availableSlots.size(); i++) {
-            FormattedTimeSlot slot = availableSlots.get(i);
+        FormattedTimeSlot slot = filteredSlots.get(0);  // 하나의 빈 시간 슬롯 사용
 
+        for (int i = 0; i < 2 && i < recommends.size(); i++) {
             ZonedDateTime slotStart = ZonedDateTime.parse(slot.getStartTime());
             ZonedDateTime slotEnd = ZonedDateTime.parse(slot.getEndTime());
 
@@ -403,9 +486,11 @@ public class LongService {
             ));
         }
 
-
         return scenarios;
     }
+
+
+
 
 
 
