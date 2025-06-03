@@ -63,15 +63,13 @@ public class LongService {
         }
     }
     // 5. 메인 서비스 메서드
-    public List<RecommendationOption> getLongRecommendations(String email) {
+    public List<RecommendationOption> getLongRecommendations(String email, LocalDate targetDate) {
         List<RecommendationOption> result = new ArrayList<>();
-        List<FormattedTimeSlot> calendarEvents = getTodayCalendarEvents(email);
-        List<FormattedTimeSlot> availableSlots = getAvailableSlots(calendarEvents);
-        List<Event> todayEvents = getTodayEvents();
+        List<FormattedTimeSlot> calendarEvents = getCalendarEventsForDate(email, targetDate);
+        List<FormattedTimeSlot> availableSlots = getAvailableSlots(calendarEvents, targetDate);
+        List<Event> todayEvents = getEventsForDate(targetDate);
 
-        // ✅ 여기만 수정! pickTwoDifferentGenres -> pickTwoDifferentGenresWithDifferentSlots
-        List<RecommendationOption> eventOptions = pickTwoDifferentGenresWithDifferentSlots(todayEvents, availableSlots);
-//        List<RecommendationOption> eventOptions = pickTwoDifferentGenres(todayEvents, availableSlots);
+        List<RecommendationOption> eventOptions = pickTwoDifferentGenresWithDifferentSlots(todayEvents, availableSlots, targetDate);
 
         result.add(new RecommendationOption("calendar", "추천X(캘린더)", calendarEvents, null, null));
 
@@ -89,17 +87,20 @@ public class LongService {
 
 
 
+
     // === 아래는 예시 로직, 실제 구현 필요 ===
 
     // 구글 캘린더에서 오늘 일정 불러오기 (FormattedTimeSlot 리스트)
     // 1. 오늘의 캘린더 일정 가져오기
-    private List<FormattedTimeSlot> getTodayCalendarEvents(String email) {
+    private List<FormattedTimeSlot> getCalendarEventsForDate(String email, LocalDate date) {
         User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
-        LocalDate today = LocalDate.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
         ZoneId zone = ZoneId.of("Asia/Seoul");
-        String timeMin = today.atStartOfDay(zone).format(formatter);
-        String timeMax = today.plusDays(1).atStartOfDay(zone).format(formatter);
+        String timeMin = date.atStartOfDay(zone).format(formatter);
+        String timeMax = date.plusDays(1).atStartOfDay(zone).format(formatter);
+
+        System.out.println("calendar query timeMin = " + timeMin);
+        System.out.println("calendar query timeMax = " + timeMax);
 
         try {
             return googleCalendarService.getFormattedEvents(user, "primary", timeMin, timeMax);
@@ -113,26 +114,21 @@ public class LongService {
     // 오늘의 빈 시간(1시간 이상) 구하기 (FormattedTimeSlot 리스트)
     // 2. 오늘의 빈 시간(1시간 이상) 구하기 (08:00~22:00)
     // 1. 빈 시간 계산 시 08:00 이전 시간 제외하도록 조정 (이미 반영돼 있지만 재확인)
-    private List<FormattedTimeSlot> getAvailableSlots(List<FormattedTimeSlot> calendarEvents) {
-        LocalDate today = LocalDate.now();
+    private List<FormattedTimeSlot> getAvailableSlots(List<FormattedTimeSlot> calendarEvents, LocalDate date) {
         ZoneId zone = ZoneId.of("Asia/Seoul");
-
         LocalTime dayStart = LocalTime.of(8, 0);
         LocalTime dayEnd = LocalTime.of(22, 0);
 
-        // 1. 08:00~22:00 안에 포함된 일정만 필터링
         List<LocalTime[]> occupied = calendarEvents.stream()
                 .map(e -> {
                     ZonedDateTime start = ZonedDateTime.parse(e.getStartTime());
                     ZonedDateTime end = ZonedDateTime.parse(e.getEndTime());
-                    return new LocalTime[] { start.toLocalTime(), end.toLocalTime() };
+                    return new LocalTime[]{start.toLocalTime(), end.toLocalTime()};
                 })
-                .filter(times -> !(times[1].isBefore(dayStart) || times[0].isAfter(dayEnd))) // 범위 밖 일정 제거
-                .map(times -> {
-                    // 시작 시간이 08:00보다 이르면 08:00으로 조정, 끝 시간이 22:00보다 늦으면 22:00으로 조정
-                    LocalTime start = times[0].isBefore(dayStart) ? dayStart : times[0];
-                    LocalTime end = times[1].isAfter(dayEnd) ? dayEnd : times[1];
-                    return new LocalTime[] { start, end };
+                .filter(times -> !(times[1].isBefore(dayStart) || times[0].isAfter(dayEnd)))
+                .map(times -> new LocalTime[]{
+                        times[0].isBefore(dayStart) ? dayStart : times[0],
+                        times[1].isAfter(dayEnd) ? dayEnd : times[1]
                 })
                 .sorted(Comparator.comparing(a -> a[0]))
                 .collect(Collectors.toList());
@@ -141,9 +137,8 @@ public class LongService {
         LocalTime prevEnd = dayStart;
 
         for (LocalTime[] occ : occupied) {
-            // 빈 구간을 1시간 단위로 채움
             while (!prevEnd.plusHours(1).isAfter(occ[0])) {
-                LocalDateTime slotStart = LocalDateTime.of(today, prevEnd);
+                LocalDateTime slotStart = LocalDateTime.of(date, prevEnd);
                 LocalDateTime slotEnd = slotStart.plusHours(1);
 
                 slots.add(new FormattedTimeSlot(
@@ -157,9 +152,8 @@ public class LongService {
             prevEnd = occ[1].isAfter(prevEnd) ? occ[1] : prevEnd;
         }
 
-        // 마지막 일정 이후 ~ 22시까지
         while (!prevEnd.plusHours(1).isAfter(dayEnd)) {
-            LocalDateTime slotStart = LocalDateTime.of(today, prevEnd);
+            LocalDateTime slotStart = LocalDateTime.of(date, prevEnd);
             LocalDateTime slotEnd = slotStart.plusHours(1);
 
             slots.add(new FormattedTimeSlot(
@@ -175,12 +169,13 @@ public class LongService {
     }
 
 
+
     // 오늘 날짜 전체 행사 불러오기 (JSON 파싱)
     // 3. 오늘 날짜 전체 행사 불러오기 (JSON 파싱)
-    private List<Event> getTodayEvents() {
+    private List<Event> getEventsForDate(LocalDate date) {
         try {
-            String today = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
-            String apiUrl = String.format("http://openapi.seoul.go.kr:8088/%s/json/culturalEventInfo/1/1000/%%20/%%20/%s", serviceKey, today);
+            String apiDate = date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+            String apiUrl = String.format("http://openapi.seoul.go.kr:8088/%s/json/culturalEventInfo/1/1000/%%20/%%20/%s", serviceKey, apiDate);
             HttpURLConnection conn = (HttpURLConnection) new URL(apiUrl).openConnection();
             conn.setRequestMethod("GET");
             conn.setRequestProperty("Content-type", "application/json");
@@ -292,8 +287,10 @@ public class LongService {
     }
 
 
-    private List<RecommendationOption> pickTwoDifferentGenresWithDifferentSlots(List<Event> events, List<FormattedTimeSlot> slots) {
-        LocalDate today = LocalDate.now();
+    private List<RecommendationOption> pickTwoDifferentGenresWithDifferentSlots(List<Event> events, List<FormattedTimeSlot> slots,
+                                                                                LocalDate date) {
+        LocalDate today = date;  // 👈 파라미터로 받은 날짜를 그대로 사용
+
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
         ZoneId zone = ZoneId.of("Asia/Seoul");
 
@@ -452,19 +449,12 @@ public class LongService {
 
     //**“내일(오늘) 추천 공연을 사용자에게 제공”**하는 메인 서비스 메서드
     public List<RecommendationOption> recommendForTomorrow(String email, Double latitude, Double longitude) {
-        LocalDate yesterday = LocalDate.now().minusDays(1);
-        String yesterdayStart = yesterday.atStartOfDay().toString();
-        String yesterdayEnd = yesterday.atTime(23, 59, 59).toString();
-
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+        UserChoice lastLong = userChoiceRepository
+                .findTopByUserAndTypeOrderByStartTimeDesc(user, "event")
+                .orElseThrow(() -> new RuntimeException("최근 긴 추천 없음"));
 
-        List<UserChoice> longChoices = userChoiceRepository
-                .findByUserAndTypeAndStartTimeBetween(user, "event", yesterdayStart, yesterdayEnd);
-
-        if (longChoices.isEmpty()) throw new RuntimeException("전날 긴 추천 없음");
-
-        UserChoice lastLong = longChoices.get(longChoices.size() - 1);
         String title = lastLong.getEventTitle();
         String genre = lastLong.getLabel();
 
@@ -473,7 +463,7 @@ public class LongService {
 
         List<RecommendationResult> recommends = getRecommendations(title, genre, stress, latitude, longitude);
 
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
         String timeMin = today.atStartOfDay(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"));
         String timeMax = today.plusDays(1).atStartOfDay(ZoneId.of("Asia/Seoul")).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX"));
 
