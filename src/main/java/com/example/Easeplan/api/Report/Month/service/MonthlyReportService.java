@@ -80,10 +80,10 @@ public class MonthlyReportService {
 
     // 이모티콘 매핑 (예: 0~20: 😄, 21~40: 🙂, 41~60: 😐, 61~80: 😟, 81~100: 😫)
     private String getStressEmoji(double avg) {
-        if (avg <= 20) return "😄";
-        else if (avg <= 40) return "🙂";
-        else if (avg <= 60) return "😐";
-        else if (avg <= 80) return "😟";
-        else return "😫";
+        if (avg <= 20) return "20";
+        else if (avg <= 40) return "40";
+        else if (avg <= 60) return "60";
+        else if (avg <= 80) return "80";
+        else return "100";
     }
 }
