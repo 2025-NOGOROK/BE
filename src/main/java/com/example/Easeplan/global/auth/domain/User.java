@@ -1,6 +1,8 @@
 package com.example.Easeplan.global.auth.domain;
 
 import com.example.Easeplan.api.Calendar.domain.GoogleCalendarInfo;
+import com.example.Easeplan.api.HaruRecord.domain.DailyEvaluation;
+import com.example.Easeplan.api.Recommend.Long.dto.UserChoice;
 import com.example.Easeplan.api.SmartWatch.domain.HeartRate;
 import com.example.Easeplan.api.Survey.domain.UserSurvey;
 import jakarta.persistence.*;
@@ -140,6 +142,14 @@ public class User extends BaseEntity implements UserDetails {
         return true;
     }
 
+
+    // daily_evaluation
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<DailyEvaluation> dailyEvaluations = new ArrayList<>();
+
+    // 2. UserChoice
+    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<UserChoice> userChoices = new ArrayList<>();
     // GoogleCalendarInfo 와의 1:N 관계
     // GoogleCalendarInfo 엔티티에 'user' 필드가 있어야 합니다.
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
