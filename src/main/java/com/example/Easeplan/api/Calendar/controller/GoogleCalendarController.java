@@ -52,20 +52,24 @@ public class GoogleCalendarController {
             String decodedCode = URLDecoder.decode(code, StandardCharsets.UTF_8);
             Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(decodedCode);
             String accessToken = (String) tokenResponse.get("access_token");
-            // refresh_token은 최초 발급 시에만 존재할 수 있습니다. 갱신 시에는 없을 수 있습니다.
-            String refreshToken = (String) tokenResponse.get("refresh_token");
+            String refreshToken = (String) tokenResponse.get("refresh_token"); // 최초 발급 시만 존재
             Long expiresIn = ((Number) tokenResponse.get("expires_in")).longValue();
+
+
+            // ✅ 여기에 로그 출력
+            log.info("✅ 발급된 Google access_token: {}", accessToken);
 
             if (accessToken == null) {
                 log.error("Access token is null after exchangeCodeForToken.");
-                response.sendRedirect("/login/fail?reason=token");
+                response.sendRedirect("com.example.nogorok:/oauth2redirect?error=token_missing");
                 return;
             }
+
             Map<String, Object> userInfo = oAuthService.getGoogleUserInfo(accessToken);
             String email = (String) userInfo.get("email");
             if (email == null) {
                 log.error("User email is null after getGoogleUserInfo.");
-                response.sendRedirect("/login/fail?reason=email");
+                response.sendRedirect("com.example.nogorok:/oauth2redirect?error=email_missing");
                 return;
             }
             // 이메일로 사용자 조회 (User 엔티티의 email 필드는 unique)
@@ -78,14 +82,18 @@ public class GoogleCalendarController {
             user.setGoogleAccessTokenExpiresAt(LocalDateTime.ofInstant(Instant.now().plusSeconds(expiresIn), ZoneOffset.UTC));
             userRepository.save(user); // DB에 토큰 정보 저장
 
-            // 클라이언트(프론트엔드)로 성공 리다이렉트
-            String appRedirectUrl = "https://recommend.ai.kr/callback.html?result=success";
+            // ✅ 앱으로 딥링크 리디렉션: access_token 포함
+            String appRedirectUrl = "com.example.nogorok:/oauth2redirect?token=" + accessToken;
+
+            // (선택) 전체 URI 로그로 확인
+            log.info("✅ 리디렉션 URI: {}", appRedirectUrl);
+
             response.sendRedirect(appRedirectUrl);
+
         } catch (Exception e) {
             log.error("OAuth2 Callback Error: {}", e.getMessage(), e);
-            String appErrorUrl = "https://recommend.ai.kr/callback?result=fail&reason=exception";
             try {
-                response.sendRedirect(appErrorUrl);
+                response.sendRedirect("com.example.nogorok:/oauth2redirect?error=exception");
             } catch (IOException ioException) {
                 ioException.printStackTrace();
             }
