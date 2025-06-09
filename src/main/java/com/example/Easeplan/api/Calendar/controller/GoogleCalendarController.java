@@ -61,7 +61,7 @@ public class GoogleCalendarController {
 
             if (accessToken == null) {
                 log.error("Access token is null after exchangeCodeForToken.");
-                response.sendRedirect("com.example.nogorok:/oauth2redirect?error=token_missing");
+                response.sendRedirect("nogorok:/oauth2redirect?error=token_missing");
                 return;
             }
 
@@ -69,7 +69,7 @@ public class GoogleCalendarController {
             String email = (String) userInfo.get("email");
             if (email == null) {
                 log.error("User email is null after getGoogleUserInfo.");
-                response.sendRedirect("com.example.nogorok:/oauth2redirect?error=email_missing");
+                response.sendRedirect("nogorok:/oauth2redirect?error=email_missing");
                 return;
             }
             // 이메일로 사용자 조회 (User 엔티티의 email 필드는 unique)
@@ -83,7 +83,7 @@ public class GoogleCalendarController {
             userRepository.save(user); // DB에 토큰 정보 저장
 
             // ✅ 앱으로 딥링크 리디렉션: access_token 포함
-            String appRedirectUrl = "com.example.nogorok:/oauth2redirect?token=" + accessToken;
+            String appRedirectUrl = "nogorok:/oauth2redirect?token=" + accessToken;
 
             // (선택) 전체 URI 로그로 확인
             log.info("✅ 리디렉션 URI: {}", appRedirectUrl);
@@ -93,7 +93,7 @@ public class GoogleCalendarController {
         } catch (Exception e) {
             log.error("OAuth2 Callback Error: {}", e.getMessage(), e);
             try {
-                response.sendRedirect("com.example.nogorok:/oauth2redirect?error=exception");
+                response.sendRedirect("nogorok:/oauth2redirect?error=exception");
             } catch (IOException ioException) {
                 ioException.printStackTrace();
             }
