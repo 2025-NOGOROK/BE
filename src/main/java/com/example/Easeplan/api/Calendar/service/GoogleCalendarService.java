@@ -32,8 +32,8 @@ public class GoogleCalendarService {
     @Value("${google.client-id}")
     private String clientId;
 
-    @Value("${google.client-secret}")
-    private String clientSecret;
+//    @Value("${google.client-secret}")
+//    private String clientSecret;
 
     private final GoogleOAuthService oAuthService;
     private final UserRepository userRepository; // User 엔티티를 직접 수정할 필요는 없지만, 주입되어 있다면 유지
@@ -56,17 +56,17 @@ public class GoogleCalendarService {
         String refreshToken = user.getGoogleRefreshToken(); // User 객체에서 refresh token 가져오기
 
         // GoogleClientSecrets는 한 번만 생성하여 재사용하는 것이 효율적입니다.
-        GoogleClientSecrets clientSecrets = new GoogleClientSecrets()
-                .setWeb(new GoogleClientSecrets.Details()
-                        .setClientId(clientId)
-                        .setClientSecret(clientSecret));
+//        GoogleClientSecrets clientSecrets = new GoogleClientSecrets()
+//                .setWeb(new GoogleClientSecrets.Details()
+//                        .setClientId(clientId)
+//                     //   .setClientSecret(clientSecret));
 
         // GoogleCredential 생성: access_token과 refresh_token을 설정
         // 이 credential 객체는 필요시 자체적으로 refresh()를 호출할 수 있지만,
         // 우리는 oAuthService에서 미리 갱신된 토큰을 받아오므로 여기서는 주로 설정 역할입니다.
         UserCredentials userCredentials = UserCredentials.newBuilder()
                 .setClientId(clientId)
-                .setClientSecret(clientSecret)
+          //      .setClientSecret(clientSecret)
                 .setRefreshToken(refreshToken)
                 .setAccessToken(new AccessToken(accessToken, null)) // 만료일 관리 필요시 두 번째 파라미터에 만료일 전달
                 .build();
