@@ -81,4 +81,15 @@ public class JwtUtil {
         Claims claims = getClaimsFromToken(token);
         return claims.get("email", String.class);
     }
+
+    //회원가입 직후, 비로그인 상태에서 사용
+
+    public String createToken(String email) {
+        return Jwts.builder()
+                .claim("email", email)
+                .setIssuedAt(new Date())
+                .setExpiration(new Date(System.currentTimeMillis() + accessExpiration))
+                .signWith(secretKey)
+                .compact();
+    }
 }
