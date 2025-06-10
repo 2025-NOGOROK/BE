@@ -25,11 +25,11 @@ public class GoogleOAuthService {
     @Value("${google.client-id}")
     private String clientId;
 
-    @Value("${google.client-secret}")
-    private String clientSecret;
+//    @Value("${google.client-secret}")
+//    private String clientSecret;
 
-    @Value("${google.redirect-uri}")
-    private String redirectUri;
+//    @Value("${google.redirect-uri}")
+//    private String redirectUri;
 
     // yml에서 스코프 목록을 주입받아 사용 (실제 인증 요청 시 활용)
 //    @Value("${google.scope}")
@@ -52,8 +52,8 @@ public class GoogleOAuthService {
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("code", code);
         params.add("client_id", clientId);
-        params.add("client_secret", clientSecret);
-        params.add("redirect_uri", redirectUri);
+      //  params.add("client_secret", clientSecret);
+      //  params.add("redirect_uri", redirectUri);
         params.add("grant_type", "authorization_code");
         // params.add("scope", String.join(" ", scopes)); // 만약 구글 인증 흐름을 직접 제어한다면 이 부분을 추가해야 합니다.
         // 그러나 보통 Spring Security OAuth2 클라이언트가 이를 처리합니다.
@@ -98,10 +98,13 @@ public class GoogleOAuthService {
     @Transactional // DB 업데이트가 있으므로 트랜잭션으로 묶습니다.
     public String getOrRefreshGoogleAccessToken(User user) {
         // refresh token이 없으면 바로 예외 발생 (재인증 필요)
+// 대체 방식
         if (user.getGoogleRefreshToken() == null || user.getGoogleRefreshToken().isEmpty()) {
-            log.error("Google access token refresh attempted but no refresh token available for user: {}", user.getEmail());
-            throw new RuntimeException("No refresh token available. User needs to re-authenticate with Google.");
+            log.warn("Android 기반 인증 사용자 - refresh_token 없음. 앱에서 access_token 갱신 필요.");
+            return user.getGoogleAccessToken(); // 그대로 사용 (유효한 경우만)
         }
+
+
 
         // Access Token이 아직 유효하고, 만료까지 5분 이상 남았으면 갱신하지 않고 바로 반환
         // (네트워크 요청 최소화를 위함)
@@ -117,7 +120,7 @@ public class GoogleOAuthService {
 
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("client_id", clientId);
-        params.add("client_secret", clientSecret);
+       // params.add("client_secret", clientSecret);
         params.add("refresh_token", user.getGoogleRefreshToken());
         params.add("grant_type", "refresh_token");
 
@@ -163,6 +166,23 @@ public class GoogleOAuthService {
         } catch (Exception e) {
             log.error("Unknown error during Google access token refresh for user {}: {}", user.getEmail(), e.getMessage(), e);
             throw new RuntimeException("Failed to refresh Google access token: " + e.getMessage(), e);
+        }
+    }
+
+
+
+    public class ReAuthenticationRequiredException extends RuntimeException {
+
+        public ReAuthenticationRequiredException() {
+            super("Google 인증이 필요합니다. 다시 로그인하세요.");
+        }
+
+        public ReAuthenticationRequiredException(String message) {
+            super(message);
+        }
+
+        public ReAuthenticationRequiredException(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 }
