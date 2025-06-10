@@ -24,7 +24,7 @@ import java.util.*;
 import java.util.regex.*;
 import java.util.stream.Collectors;
 
-@Tag(name = "Short_Recommend", description = "짧은 쉼표")
+@Tag(name = "짧은 추천", description = "짧은 쉼표")
 @RestController
 public class ShortController {
 
