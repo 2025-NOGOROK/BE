@@ -6,7 +6,12 @@ import com.example.Easeplan.api.Calendar.service.GoogleCalendarService;
 import com.example.Easeplan.api.Calendar.service.GoogleOAuthService;
 import com.example.Easeplan.api.Fcm.service.NotificationScheduler;
 import com.example.Easeplan.global.auth.domain.User;
+import com.example.Easeplan.global.auth.dto.JwtUtil;
 import com.example.Easeplan.global.auth.repository.UserRepository;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.services.calendar.model.Event;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -25,80 +30,195 @@ import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
+import org.springframework.beans.factory.annotation.Value;
 @Slf4j
 @Tag(name = "GoogleCalendar", description = "구글캘린더 API")
 @RestController
 @RequestMapping("/auth/google")
 public class GoogleCalendarController {
+
+    @Value("${google.client-id}")
+    private String googleClientId;
     private final GoogleOAuthService oAuthService;
     private final GoogleCalendarService calendarService;
     private final NotificationScheduler notificationScheduler;
     private final UserRepository userRepository;
 
-    public GoogleCalendarController(GoogleOAuthService oAuthService, GoogleCalendarService calendarService, NotificationScheduler notificationScheduler, UserRepository userRepository) {
+    private final JwtUtil jwtProvider;
+
+    public GoogleCalendarController(GoogleOAuthService oAuthService, GoogleCalendarService calendarService, NotificationScheduler notificationScheduler, UserRepository userRepository, JwtUtil jwtProvider) {
         this.oAuthService = oAuthService;
         this.calendarService = calendarService;
         this.notificationScheduler = notificationScheduler;
         this.userRepository = userRepository;
+        this.jwtProvider = jwtProvider;
     }
 
-    @Operation(summary = "구글 캘린더 인증 callback (최초 연동 및 리프레시 토큰 갱신 필요 시)")
-    @GetMapping("/callback")
-    public void oauth2Callback(@RequestParam String code, HttpServletResponse response) {
+    // 주의: 중첩된 경로 제거
+    @Operation(
+            summary = "Google OAuth 토큰 기반 모바일 회원가입 및 JWT 발급",
+            description = """
+        Android 앱에서 Google 로그인을 완료한 후 발급받은 `access_token`과 `refresh_token`을 서버에 전달하여 회원가입 및 JWT 발급을 수행합니다.<br><br>
+
+        ✅ **처리 흐름**<br>
+        - Google 로그인 완료 후 받은 access_token을 이용해 사용자 이메일을 확인합니다.<br>
+        - 이미 가입된 이메일이면 가입 거절(409 Conflict).<br>
+        - 신규 이메일인 경우 User 엔티티 생성 및 저장 후, 자체 서비스용 JWT 발급.<br><br>
+
+        📥 **요청 예시(JSON):**
+        ```json
+        {
+          "access_token": "ya29.a0AVvZV...",
+          "refresh_token": "1//0g7ZxV..."
+        }
+        ```
+
+        📤 **응답 예시(JSON):**
+        ```json
+        {
+          "message": "회원가입 및 로그인 완료",
+          "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        }
+        ```
+
+        ❗ **주의사항:**<br>
+        - 프론트엔드(Android 앱)는 반드시 Google 로그인을 통해 `access_token`과 `refresh_token`을 먼저 획득해야 합니다.<br>
+        - 회원가입 API이므로, 로그인된 JWT 인증 없이도 호출 가능합니다.<br>
+        - 이 API는 최초 가입/등록에만 사용하고, 이후 로그인은 별도 로그인 API로 처리해야 합니다.
+    """
+    )
+
+    @PostMapping("/mobile-register")
+    public ResponseEntity<?> registerWithGoogleTokens(@RequestBody Map<String, String> request) {
         try {
-            String decodedCode = URLDecoder.decode(code, StandardCharsets.UTF_8);
-            Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(decodedCode);
-            String accessToken = (String) tokenResponse.get("access_token");
-            String refreshToken = (String) tokenResponse.get("refresh_token"); // 최초 발급 시만 존재
-            Long expiresIn = ((Number) tokenResponse.get("expires_in")).longValue();
+            String accessToken = request.get("access_token");
+            String refreshToken = request.get("refresh_token");
 
-
-            // ✅ 여기에 로그 출력
-            log.info("✅ 발급된 Google access_token: {}", accessToken);
-
-            if (accessToken == null) {
-                log.error("Access token is null after exchangeCodeForToken.");
-                response.sendRedirect("nogorok:/oauth2redirect?error=token_missing");
-                return;
+            if (accessToken == null || accessToken.isBlank()) {
+                return ResponseEntity.badRequest().body("access_token은 필수입니다.");
             }
 
+            // ⬇️ access_token으로 사용자 정보 조회
             Map<String, Object> userInfo = oAuthService.getGoogleUserInfo(accessToken);
             String email = (String) userInfo.get("email");
-            if (email == null) {
-                log.error("User email is null after getGoogleUserInfo.");
-                response.sendRedirect("nogorok:/oauth2redirect?error=email_missing");
-                return;
+
+            if (email == null || email.isBlank()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("유효하지 않은 Google 계정입니다.");
             }
-            // 이메일로 사용자 조회 (User 엔티티의 email 필드는 unique)
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found: " + email));
 
-            // **[핵심 변경]** User 엔티티에 토큰과 만료 시간 저장 및 DB 반영
-            user.updateGoogleTokens(accessToken, refreshToken); // refreshToken은 null일 수도 있음 (갱신 시)
-            // expiresIn은 초 단위이므로 현재 시각에 더해서 만료 시각을 계산하고 UTC 기준으로 저장
-            user.setGoogleAccessTokenExpiresAt(LocalDateTime.ofInstant(Instant.now().plusSeconds(expiresIn), ZoneOffset.UTC));
-            userRepository.save(user); // DB에 토큰 정보 저장
+            // ⬇️ 이메일 중복 확인
+            if (userRepository.findByEmail(email).isPresent()) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body("이미 가입된 이메일입니다.");
+            }
 
-            // ✅ 앱으로 딥링크 리디렉션: access_token 포함
-            String appRedirectUrl = "nogorok:/oauth2redirect?token=" + accessToken;
+            // ⬇️ 유저 저장
+            User user = User.builder()
+                    .email(email)
+                    .googleAccessToken(accessToken)
+                    .googleRefreshToken(refreshToken)
+                    .googleAccessTokenExpiresAt(LocalDateTime.ofInstant(Instant.now().plusSeconds(3600), ZoneOffset.UTC))
+                    .build();
 
-            // (선택) 전체 URI 로그로 확인
-            log.info("✅ 리디렉션 URI: {}", appRedirectUrl);
+            userRepository.save(user);
 
-            response.sendRedirect(appRedirectUrl);
+            // ⬇️ JWT 발급
+            String jwt = jwtProvider.createToken(user.getEmail()); // 여기서 getEmail() 명시
 
+            return ResponseEntity.ok(Map.of(
+                    "message", "회원가입 및 로그인 완료",
+                    "token", jwt
+            ));
         } catch (Exception e) {
-            log.error("OAuth2 Callback Error: {}", e.getMessage(), e);
-            try {
-                response.sendRedirect("nogorok:/oauth2redirect?error=exception");
-            } catch (IOException ioException) {
-                ioException.printStackTrace();
-            }
+            log.error("Google 회원가입 실패", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("회원가입 중 오류 발생");
         }
     }
+
+
+
+
+//    @Operation(summary = "구글 캘린더 인증 callback (최초 연동 및 리프레시 토큰 갱신 필요 시)")
+//    @GetMapping("/callback")
+//    public ResponseEntity<?> oauth2Callback(@RequestParam String code,
+//                                            @RequestParam(required = false) String platform,
+//                                            HttpServletResponse response) {
+//        try {
+//            String decodedCode = URLDecoder.decode(code, StandardCharsets.UTF_8);
+//            Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(decodedCode);
+//            String accessToken = (String) tokenResponse.get("access_token");
+//            String refreshToken = (String) tokenResponse.get("refresh_token");
+//            Long expiresIn = ((Number) tokenResponse.get("expires_in")).longValue();
+//
+//            Map<String, Object> userInfo = oAuthService.getGoogleUserInfo(accessToken);
+//            String email = (String) userInfo.get("email");
+//            User user = userRepository.findByEmail(email)
+//                    .orElseThrow(() -> new RuntimeException("User not found: " + email));
+//
+//            user.updateGoogleTokens(accessToken, refreshToken);
+//            user.setGoogleAccessTokenExpiresAt(
+//                    LocalDateTime.ofInstant(Instant.now().plusSeconds(expiresIn), ZoneOffset.UTC));
+//            userRepository.save(user);
+//
+//            if ("android".equals(platform)) {
+//                // ✅ Android 앱에서 요청 시 JSON 반환
+//                return ResponseEntity.ok(Map.of("access_token", accessToken));
+//            } else {
+//                // ✅ 웹 리디렉션
+//                String appRedirectUrl = "nogorok:/oauth2redirect?token=" + accessToken;
+//                response.sendRedirect(appRedirectUrl);
+//                return null;
+//            }
+//        } catch (Exception e) {
+//            log.error("OAuth2 Callback Error: {}", e.getMessage(), e);
+//            try {
+//                response.sendRedirect("nogorok:/oauth2redirect?error=exception");
+//            } catch (IOException ioException) {
+//                ioException.printStackTrace();
+//            }
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("OAuth 실패");
+//        }
+//    }
+
+
+
+
+    @Operation(summary = "Google access_token 갱신", description = """
+        사용자의 Google refresh_token을 사용하여 새로운 access_token을 갱신합니다.
+
+        📥 요청 헤더:
+        - JWT AccessToken 필요 (사용자 식별)
+
+        📤 응답 예시:
+        ```json
+        {
+          "access_token": "ya29.a0AfH6SMA... (갱신된 값)",
+          "expires_at": "2025-06-09T23:58:00Z"
+        }
+        ```
+    """)
+    @PostMapping("/refresh-access-token")
+    public ResponseEntity<?> refreshAccessToken(@AuthenticationPrincipal UserDetails userDetails) {
+        try {
+            User user = userRepository.findByEmail(userDetails.getUsername())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
+
+            String newAccessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
+
+            return ResponseEntity.ok(Map.of(
+                    "access_token", newAccessToken,
+                    "expires_at", user.getGoogleAccessTokenExpiresAt()
+            ));
+        } catch (Exception e) {
+            log.error("Google access_token 갱신 실패", e);
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Google access_token 갱신 실패: 재로그인 필요");
+        }
+    }
+
 
     @Operation(
             summary = "구글 캘린더 일정 조회",
