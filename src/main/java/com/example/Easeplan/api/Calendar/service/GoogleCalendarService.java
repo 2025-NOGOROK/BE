@@ -32,8 +32,15 @@ public class GoogleCalendarService {
     @Value("${google.client-id}")
     private String clientId;
 
-//    @Value("${google.client-secret}")
-//    private String clientSecret;
+    @Value("${google.client-secret}")
+    private String clientSecret;
+
+    @Value("${google.redirect-uri}")
+    private String redirectUri;
+
+//    @Value("${google.scope}")
+//    private List<String> scopes;  // 자동으로 List<String> 형태로 주입됩니다.
+
 
     private final GoogleOAuthService oAuthService;
     private final UserRepository userRepository; // User 엔티티를 직접 수정할 필요는 없지만, 주입되어 있다면 유지
@@ -51,22 +58,12 @@ public class GoogleCalendarService {
      * @throws Exception HTTP 전송 또는 JSON 파싱 중 오류 발생 시
      */
     public Calendar getCalendarService(User user) throws Exception {
-        // **[핵심]** oAuthService를 통해 항상 최신이고 유효한 access_token을 가져옵니다.
         String accessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
         String refreshToken = user.getGoogleRefreshToken(); // User 객체에서 refresh token 가져오기
 
-        // GoogleClientSecrets는 한 번만 생성하여 재사용하는 것이 효율적입니다.
-//        GoogleClientSecrets clientSecrets = new GoogleClientSecrets()
-//                .setWeb(new GoogleClientSecrets.Details()
-//                        .setClientId(clientId)
-//                     //   .setClientSecret(clientSecret));
-
-        // GoogleCredential 생성: access_token과 refresh_token을 설정
-        // 이 credential 객체는 필요시 자체적으로 refresh()를 호출할 수 있지만,
-        // 우리는 oAuthService에서 미리 갱신된 토큰을 받아오므로 여기서는 주로 설정 역할입니다.
+        // UserCredentials를 사용하여 인증 객체 생성
         UserCredentials userCredentials = UserCredentials.newBuilder()
                 .setClientId(clientId)
-          //      .setClientSecret(clientSecret)
                 .setRefreshToken(refreshToken)
                 .setAccessToken(new AccessToken(accessToken, null)) // 만료일 관리 필요시 두 번째 파라미터에 만료일 전달
                 .build();
@@ -78,7 +75,7 @@ public class GoogleCalendarService {
                 GsonFactory.getDefaultInstance(),
                 requestInitializer
         ).setApplicationName("Easeplan").build();
-        return service; // ✅ 반드시 return 추가!
+        return service;
     }
 
     // --- (이하 모든 캘린더 API 호출 메서드는 user 객체를 첫 번째 인자로 받도록 변경) ---
