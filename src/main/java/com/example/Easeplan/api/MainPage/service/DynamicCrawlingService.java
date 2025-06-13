@@ -1,14 +1,15 @@
 package com.example.Easeplan.api.MainPage.service;
 
 import lombok.extern.slf4j.Slf4j;
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
+import org.openqa.selenium.*;
 import org.openqa.selenium.chrome.ChromeDriver;
 import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
 import org.springframework.stereotype.Service;
-
+import java.time.Duration;
 import java.util.List;
+
 @Slf4j
 @Service
 public class DynamicCrawlingService {
@@ -17,41 +18,43 @@ public class DynamicCrawlingService {
         // 크롬 드라이버 경로 설정
         System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
 
-        // 크롬 옵션 설정 (헤드리스 모드)
+        // 크롬 옵션 설정 (헤드리스 모드, User-Agent 등)
         ChromeOptions options = new ChromeOptions();
         options.setBinary("/usr/bin/google-chrome-stable");
-        options.addArguments("--headless");
+        options.addArguments("--headless=new"); // 최신 버전은 new 권장
         options.addArguments("--no-sandbox");
         options.addArguments("--disable-dev-shm-usage");
+        options.addArguments("--disable-gpu");
+        options.addArguments("window-size=1920,1080");
+        options.addArguments("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Safari/537.36");
 
-        // 크롬 드라이버 초기화
-        WebDriver driver = new ChromeDriver(options);
-
+        WebDriver driver = null;
         try {
-            // 삼성병원 로그인 페이지 접속
-            driver.get("https://www.samsunghospital.com");
+            driver = new ChromeDriver(options);
+            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
-            // 아이디 및 비밀번호 입력
-            WebElement userIdField = driver.findElement(By.id("MST_ID"));
-            WebElement passwordField = driver.findElement(By.id("PASS"));
-            userIdField.sendKeys("your-username");  // 실제 아이디 입력
-            passwordField.sendKeys("your-password");  // 실제 비밀번호 입력
+            // 삼성병원 로그인 페이지 접속 (로그인 전용 URL 사용 권장)
+            driver.get("https://www.samsunghospital.com/home/member/login.do?prevURI=http%3A%2F%2Fwww.samsunghospital.com%2Fhome%2Fmain%2Findex.do");
 
-            // 로그인 버튼 클릭
-            WebElement loginButton = driver.findElement(By.xpath("//a[@role='button']"));
+            // 아이디 및 비밀번호 입력 (wait로 대기)
+            WebElement userIdField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("MST_ID")));
+            WebElement passwordField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("PASS")));
+            userIdField.sendKeys("hyolin");  // 실제 아이디 입력
+            passwordField.sendKeys("mongsillove1!");  // 실제 비밀번호 입력
+
+            // 로그인 버튼 클릭 (정확한 CSS selector 사용)
+            WebElement loginButton = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("a.btn_norm[role='button']")));
             loginButton.click();
 
-            // 페이지 로드 대기
-            Thread.sleep(5000); // 충분히 대기
+            // 로그인 후 페이지 로드 대기
+            Thread.sleep(4000);
 
-            // 로그인 후 크롤링할 페이지로 이동
-            driver.get("http://www.samsunghospital.com/home/healthMedical/private/lifeClinicStress05.do");
-            Thread.sleep(3000); // 페이지 로드 대기
+            // 크롤링할 페이지로 이동
+            driver.get("https://www.samsunghospital.com/home/healthMedical/private/lifeClinicStress05.do");
+            WebElement section = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("contents")));
 
-            // 크롤링: section id=contents 내부의 이미지 추출
-            WebElement section = driver.findElement(By.id("contents"));
+            // 이미지 추출
             List<WebElement> images = section.findElements(By.tagName("img"));
-
             StringBuilder result = new StringBuilder();
             for (WebElement img : images) {
                 String imgUrl = img.getAttribute("src");
@@ -59,13 +62,22 @@ public class DynamicCrawlingService {
             }
 
             return result.toString();
+        } catch (TimeoutException e) {
+            log.error("요소를 찾지 못했습니다 (Timeout): ", e);
+            return "크롤링 실패: 요소를 찾지 못했습니다 (Timeout)";
+        } catch (NoSuchElementException e) {
+            log.error("요소를 찾지 못했습니다 (NoSuchElement): ", e);
+            return "크롤링 실패: 요소를 찾지 못했습니다 (NoSuchElement)";
+        } catch (WebDriverException e) {
+            log.error("WebDriver 에러: ", e);
+            return "크롤링 실패: WebDriver 에러 - " + e.getMessage();
         } catch (Exception e) {
-            log.error("크롤링 실패: ", e); // 보다 구체적인 예외 로깅 추가
-            e.printStackTrace();
+            log.error("크롤링 실패: ", e);
             return "크롤링 실패: " + e.getMessage();
         } finally {
-            driver.quit();
+            if (driver != null) {
+                driver.quit();
+            }
         }
     }
-
 }
