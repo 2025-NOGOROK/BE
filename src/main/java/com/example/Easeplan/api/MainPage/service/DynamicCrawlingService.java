@@ -13,19 +13,24 @@ import java.util.List;
 public class DynamicCrawlingService {
 
     public String crawlSamsungHospital() {
-        System.setProperty("webdriver.chrome.driver", "D:/chromedriver-win64/chromedriver.exe");
+        // ChromeDriver 경로 설정 (서버에서 설치된 경로로 수정 필요)
+        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver"); // 서버에 맞는 경로로 설정
 
+        // ChromeOptions 설정 (headless 모드)
         ChromeOptions options = new ChromeOptions();
+        options.setBinary("/usr/bin/google-chrome-stable");  // 서버에서 구글 크롬 실행 경로
         options.addArguments("--headless");
-        options.addArguments("--disable-gpu");
+        options.addArguments("--no-sandbox");
+        options.addArguments("--disable-dev-shm-usage"); // 리소스 부족 문제 해결
 
+        // WebDriver 생성
         WebDriver driver = new ChromeDriver(options);
 
         StringBuilder result = new StringBuilder();
 
         try {
             driver.get("http://www.samsunghospital.com/home/healthMedical/private/lifeClinicStress05.do");
-            Thread.sleep(3000);
+            Thread.sleep(3000); // 페이지가 로드될 시간을 잠시 대기
 
             // 1. section id="contents" 찾기
             WebElement section = driver.findElement(By.id("contents"));
@@ -53,7 +58,7 @@ public class DynamicCrawlingService {
             e.printStackTrace();
             return "크롤링 실패: " + e.getMessage();
         } finally {
-            driver.quit();
+            driver.quit();  // 드라이버 종료
         }
     }
 
