@@ -30,7 +30,7 @@ public class DynamicCrawlingService {
 
         try {
             // 삼성병원 로그인 페이지로 접근
-            driver.get("https://www.samsunghospital.com");  // 로그인 페이지 URL (정확한 로그인 URL로 변경 필요)
+            driver.get("https://www.samsunghospital.com/home/member/login.do?prevURI=http%3A%2F%2Fwww.samsunghospital.com%2Fhome%2Fmain%2Findex.do");  // 로그인 페이지 URL (정확한 로그인 URL로 변경 필요)
 
             // 1. 사용자 아이디 입력 (MST_ID)
             WebElement userIdField = driver.findElement(By.id("MST_ID"));
