@@ -29,8 +29,11 @@ public class DynamicCrawlingService {
         StringBuilder result = new StringBuilder();
 
         try {
+            // 로그인 없이 접근 가능한 페이지를 설정합니다.
             driver.get("http://www.samsunghospital.com/home/healthMedical/private/lifeClinicStress05.do");
-            Thread.sleep(3000); // 페이지가 로드될 시간을 잠시 대기
+
+            // 페이지가 로드될 시간을 잠시 대기
+            Thread.sleep(3000);
 
             // 1. section id="contents" 찾기
             WebElement section = driver.findElement(By.id("contents"));
@@ -45,21 +48,20 @@ public class DynamicCrawlingService {
                 result.append(imgUrl).append("\n");
             }
 
-            // (기존 코드) div.section-step 텍스트도 같이 추출하고 싶으면 아래 유지
+            // 추가적으로 원하는 텍스트를 추출하고자 하면 아래와 같이 작성
             result.append("\n[section-step 텍스트]\n");
             List<WebElement> steps = driver.findElements(By.className("section-step"));
             for (WebElement step : steps) {
                 result.append(step.getText()).append("\n");
             }
 
-            return result.toString();
+            return result.toString();  // 결과를 문자열로 반환
 
         } catch (Exception e) {
             e.printStackTrace();
-            return "크롤링 실패: " + e.getMessage();
+            return "크롤링 실패: " + e.getMessage(); // 에러 메시지 반환
         } finally {
             driver.quit();  // 드라이버 종료
         }
     }
-
 }
