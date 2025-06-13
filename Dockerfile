@@ -12,12 +12,17 @@ RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd6
     && rm google-chrome-stable_current_amd64.deb
 
 # ChromeDriver 설치 (Chrome 버전에 맞춰서)
-RUN CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+') \
-    && wget -q https://chromedriver.storage.googleapis.com/${CHROME_VERSION}/chromedriver_linux64.zip \
-    && unzip chromedriver_linux64.zip \
-    && mv chromedriver /usr/local/bin/ \
+# ChromeDriver 설치 (chrome-for-testing-public에서 버전 자동 추출)
+RUN apt-get update && apt-get install -y curl jq \
+    && CHROME_VERSION=$(google-chrome --version | grep -oP '\d+\.\d+\.\d+') \
+    && CFT_URL="https://googlechromelabs.github.io/chrome-for-testing/last-known-good-versions-with-downloads.json" \
+    && CFT_JSON=$(curl -sSL $CFT_URL) \
+    && CHROMEDRIVER_URL=$(echo $CFT_JSON | jq -r --arg CHROME_VERSION "$CHROME_VERSION" '.channels.Stable.downloads.chromedriver[] | select(.platform=="linux64") | .url') \
+    && wget -q $CHROMEDRIVER_URL -O chromedriver-linux64.zip \
+    && unzip chromedriver-linux64.zip \
+    && mv chromedriver-linux64/chromedriver /usr/local/bin/chromedriver \
     && chmod +x /usr/local/bin/chromedriver \
-    && rm chromedriver_linux64.zip
+    && rm -rf chromedriver-linux64*
 
 ARG JAR_FILE=build/libs/*.jar
 COPY ${JAR_FILE} app.jar
