@@ -89,15 +89,18 @@ public class User extends BaseEntity implements UserDetails {
      * @param newAccessToken 새로 발급받은 액세스 토큰
      * @param newRefreshToken 새로 발급받은 리프레시 토큰 (없으면 null 또는 빈 문자열)
      */
-    public void updateGoogleTokens(String newAccessToken, String newRefreshToken) {
+    public void updateGoogleTokens(String newAccessToken, String newRefreshToken, LocalDateTime expiresAt) {
         this.googleAccessToken = newAccessToken;
+
         // refresh token은 최초 발급 시 또는 아주 드물게 갱신될 때만 넘어옵니다.
-        // null이 아니거나 빈 문자열이 아닐 때만 업데이트합니다.
         if (newRefreshToken != null && !newRefreshToken.isEmpty()) {
             this.googleRefreshToken = newRefreshToken;
         }
-        // googleAccessTokenExpiresAt은 이 메서드 호출 후 별도로 설정해야 합니다.
+
+        // googleAccessTokenExpiresAt을 설정합니다.
+        this.googleAccessTokenExpiresAt = expiresAt;
     }
+
 
     /**
      * 구글 액세스 토큰의 만료 시각을 설정합니다. (UTC 기준)
