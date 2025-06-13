@@ -61,6 +61,12 @@ public class DynamicCrawlingService {
                 result.append(imgUrl).append("\n");
             }
 
+            // 텍스트 추출 (예: .section-step 클래스의 텍스트)
+            List<WebElement> steps = section.findElements(By.className("section-step"));
+            for (WebElement step : steps) {
+                result.append("Text: ").append(step.getText()).append("\n");
+            }
+
             return result.toString();
         } catch (TimeoutException e) {
             log.error("요소를 찾지 못했습니다 (Timeout): ", e);
