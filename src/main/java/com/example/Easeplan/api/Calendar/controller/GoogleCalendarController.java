@@ -16,6 +16,7 @@ import com.google.api.services.calendar.model.Event;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -177,6 +178,7 @@ public class GoogleCalendarController {
         - `jwt`: 백엔드 시스템의 인증을 위한 JWT
     """
     )
+    @Transactional
     @GetMapping("/callback")
     public ResponseEntity<?> googleCallback(@RequestParam String code) {
         try {
