@@ -94,21 +94,17 @@ public class SmartwatchService {
 //    }
 
     public Optional<Float> getClosestAvgHeartRate(User user) {
-        LocalDateTime now = LocalDateTime.now();
-        String todayStart = now.toLocalDate().atStartOfDay().format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
-        String todayEnd = now.toLocalDate().atTime(23,59,59).format(DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss"));
+        // 가장 최신의 심박수 데이터를 가져옵니다.
+        Optional<HeartRate> latestHeartRate = smartwatchRepo.findTopByUserEmailOrderByStartTimeDesc(user.getEmail());
 
-        List<HeartRate> todayRates = smartwatchRepo.findByUserAndStartTimeBetween(user, todayStart, todayEnd);
+        // 최신 데이터가 없으면 빈 Optional을 반환
+        if (latestHeartRate.isEmpty()) {
+            return Optional.empty();
+        }
 
-        if (todayRates.isEmpty()) return Optional.empty();
-
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-
-        return todayRates.stream()
-                .min(Comparator.comparing(hr -> {
-                    LocalDateTime hrTime = LocalDateTime.parse(hr.getStartTime(), formatter);
-                    return Math.abs(java.time.Duration.between(hrTime, now).toSeconds());
-                }))
-                .map(HeartRate::getAvg);
+        // 최신 데이터를 기반으로 avg 값을 반환
+        return latestHeartRate.map(HeartRate::getAvg);
     }
+
+
 }
