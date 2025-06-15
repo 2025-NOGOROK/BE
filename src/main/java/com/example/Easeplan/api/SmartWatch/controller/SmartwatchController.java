@@ -71,12 +71,14 @@ public class SmartwatchController {
         """)
     @GetMapping("/latest")
     public ResponseEntity<?> getLatestAvg(@AuthenticationPrincipal UserDetails userDetails) {
+        System.out.println("GET /api/devices/latest called");
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
         return smartwatchService.getClosestAvgHeartRate(user)
                 .map(avg -> ResponseEntity.ok().body(Map.of("avg", avg)))
                 .orElse(ResponseEntity.notFound().build());
     }
+
 
 }
 
