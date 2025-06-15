@@ -20,7 +20,7 @@ import java.util.List;
 // import com.example.Easeplan.api.Calendar.domain.GoogleCalendarInfo; // User 엔티티에서 직접 List<GoogleCalendarInfo>를 관리한다면 필요
 // import com.example.Easeplan.api.SmartWatch.domain.HeartRate; // User 엔티티에서 직접 List<HeartRate>를 관리한다면 필요
 // import com.example.Easeplan.api.Survey.domain.UserSurvey; // User 엔티티에서 직접 UserSurvey를 관리한다면 필요
-
+@Setter
 @Entity
 @Getter
 @Builder
@@ -73,6 +73,12 @@ public class User extends BaseEntity implements UserDetails {
     // UserSurvey 엔티티에 'user' 필드가 있어야 합니다.
     @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
     private UserSurvey userSurvey; // UserSurvey 엔티티 클래스가 존재해야 함
+
+
+    @Column(name = "google_auth_code")
+    private String googleAuthCode;  // 구글 OAuth 코드 추가
+
+
 
     @Column(name = "google_access_token")
     private String googleAccessToken;
