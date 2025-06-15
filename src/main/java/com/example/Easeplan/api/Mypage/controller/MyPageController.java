@@ -36,6 +36,21 @@ public class MyPageController {
     private final MyPageService myPageService; // 추가
     // 설문 정보 수정
 
+    /**
+     * 로그인된 사용자의 이름을 반환하는 API
+     * @param user 현재 로그인된 사용자 정보
+     * @return 사용자 이름
+     */
+
+    @Operation(summary = "이름반환", description = """
+            이름반환을 진행합니다.<br>
+            헤더에 accessToken을 넣어주세요.<br>
+            """)
+    @GetMapping("/name")
+    public String getUserName(@AuthenticationPrincipal User user) {
+        return user.getName(); // User 엔티티의 getName() 메서드를 통해 사용자 이름 반환
+    }
+
     @Operation(
             summary = "생활패턴 설문 수정",
             description = """
