@@ -51,6 +51,7 @@ public class MyPageController {
         return user.getName(); // User 엔티티의 getName() 메서드를 통해 사용자 이름 반환
     }
 
+
     @Operation(
             summary = "생활패턴 설문 수정",
             description = """
