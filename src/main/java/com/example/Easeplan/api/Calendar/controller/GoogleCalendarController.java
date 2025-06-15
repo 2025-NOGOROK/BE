@@ -180,7 +180,7 @@ public class GoogleCalendarController {
         - `jwt`: 백엔드 시스템의 인증을 위한 JWT
     """
     )
-    @GetMapping("/auth/google/callback")
+    @GetMapping("/callback")
     public ResponseEntity<?> googleCallback(@RequestParam String code) {
         try {
             // 1. 받은 code로 액세스 토큰과 리프레시 토큰을 받음
