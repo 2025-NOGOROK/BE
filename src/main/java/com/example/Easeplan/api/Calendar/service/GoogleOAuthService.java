@@ -40,11 +40,10 @@ public class GoogleOAuthService {
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("code", code);
         params.add("client_id", googleOAuthProperties.getClientId());  // Android 클라이언트 ID
-        params.add("redirect_uri", googleOAuthProperties.getRedirectUri());  // 백엔드 리디렉션 URI
-        params.add("redirect_uri", googleOAuthProperties.getRedirectUri());  // 모바일 앱의 딥링크 URI
+        params.add("redirect_uri", googleOAuthProperties.getRedirectUri());  // Android 앱에서 사용하는 딥링크 URI
         params.add("grant_type", "authorization_code");
 
-        // Android 클라이언트에서는 client_secret이 필요 없으므로 포함하지 않음
+        // client_secret 필요 없을 경우, 이 부분을 제거할 수 있습니다
         if (googleOAuthProperties.getClientSecret() != null && !googleOAuthProperties.getClientSecret().isEmpty()) {
             params.add("client_secret", googleOAuthProperties.getClientSecret());
         }
@@ -63,6 +62,7 @@ public class GoogleOAuthService {
 
         return response.getBody();
     }
+
 
     /**
      * Google API에서 사용자 정보를 조회
