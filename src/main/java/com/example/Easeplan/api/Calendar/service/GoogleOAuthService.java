@@ -30,21 +30,28 @@ public class GoogleOAuthService {
         this.userRepository = userRepository;
     }
 
+    /**
+     * Google OAuth 2.0을 통해 authorization code로 액세스 토큰을 교환
+     * @param code Authorization code
+     * @return 액세스 토큰과 리프레시 토큰을 포함한 응답
+     */
     public Map<String, Object> exchangeCodeForToken(String code) {
         String url = "https://oauth2.googleapis.com/token";
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("code", code);
-        params.add("client_id", googleOAuthProperties.getClientId());
-        params.add("client_secret", googleOAuthProperties.getClientSecret());
-        params.add("redirect_uri", googleOAuthProperties.getRedirectUri());
+        params.add("client_id", googleOAuthProperties.getClientId());  // Android 클라이언트 ID
+        params.add("redirect_uri", googleOAuthProperties.getRedirectUri());  // 모바일 앱의 딥링크 URI
         params.add("grant_type", "authorization_code");
-        params.add("scope", String.join(" ", googleOAuthProperties.getScope()));
+
+        // Android 클라이언트에서는 client_secret이 필요 없으므로 포함하지 않음
+        if (googleOAuthProperties.getClientSecret() != null && !googleOAuthProperties.getClientSecret().isEmpty()) {
+            params.add("client_secret", googleOAuthProperties.getClientSecret());
+        }
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
-
         RestTemplate restTemplate = new RestTemplate();
         ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
 
@@ -56,10 +63,15 @@ public class GoogleOAuthService {
         return response.getBody();
     }
 
+    /**
+     * Google API에서 사용자 정보를 조회
+     * @param accessToken 액세스 토큰
+     * @return 사용자 정보 (email 포함)
+     */
     public Map<String, Object> getGoogleUserInfo(String accessToken) {
         String url = "https://www.googleapis.com/oauth2/v2/userinfo";
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(accessToken);
+        headers.setBearerAuth(accessToken);  // Bearer 방식으로 Authorization 헤더에 액세스 토큰 포함
         HttpEntity<String> request = new HttpEntity<>(headers);
         RestTemplate restTemplate = new RestTemplate();
         ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, request, Map.class);
@@ -83,8 +95,8 @@ public class GoogleOAuthService {
 
         String url = "https://oauth2.googleapis.com/token";
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("client_id", googleOAuthProperties.getClientId());
-        params.add("client_secret", googleOAuthProperties.getClientSecret());
+        params.add("client_id", googleOAuthProperties.getClientId());  // Android 클라이언트 ID
+        params.add("client_secret", googleOAuthProperties.getClientSecret());  // 웹 클라이언트 ID
         params.add("refresh_token", user.getGoogleRefreshToken());
         params.add("grant_type", "refresh_token");
 
@@ -129,6 +141,5 @@ public class GoogleOAuthService {
             throw new RuntimeException("Failed to refresh Google access token: " + e.getMessage(), e);
         }
     }
-
-
 }
+
