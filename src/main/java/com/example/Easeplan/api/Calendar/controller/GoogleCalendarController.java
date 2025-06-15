@@ -178,7 +178,6 @@ public class GoogleCalendarController {
         - `jwt`: 백엔드 시스템의 인증을 위한 JWT
     """
     )
-    @Transactional
     @GetMapping("/callback")
     public ResponseEntity<?> googleCallback(@RequestParam String code) {
         try {
