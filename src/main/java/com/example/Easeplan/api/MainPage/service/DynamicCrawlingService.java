@@ -33,23 +33,7 @@ public class DynamicCrawlingService {
             driver = new ChromeDriver(options);
             WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(15));
 
-            // 삼성병원 로그인 페이지 접속 (로그인 전용 URL 사용 권장)
-            driver.get("https://www.samsunghospital.com/home/member/login.do?prevURI=http%3A%2F%2Fwww.samsunghospital.com%2Fhome%2Fmain%2Findex.do");
-
-            // 아이디 및 비밀번호 입력 (wait로 대기)
-            WebElement userIdField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("MST_ID")));
-            WebElement passwordField = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("PASS")));
-            userIdField.sendKeys("hyolin");  // 실제 아이디 입력
-            passwordField.sendKeys("mongsillove1!");  // 실제 비밀번호 입력
-
-            // 로그인 버튼 클릭 (정확한 CSS selector 사용)
-            WebElement loginButton = wait.until(ExpectedConditions.elementToBeClickable(By.cssSelector("a.btn_norm[role='button']")));
-            loginButton.click();
-
-            // 로그인 후 페이지 로드 대기
-            Thread.sleep(4000);
-
-            // 크롤링할 페이지로 이동
+            // 로그인 없이 크롤링할 페이지로 직접 이동
             driver.get("https://www.samsunghospital.com/home/healthMedical/private/lifeClinicStress05.do");
             WebElement section = wait.until(ExpectedConditions.visibilityOfElementLocated(By.id("contents")));
 
