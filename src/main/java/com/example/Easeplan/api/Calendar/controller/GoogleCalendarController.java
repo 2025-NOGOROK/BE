@@ -216,19 +216,45 @@ public class GoogleCalendarController {
             ));
 
         } catch (HttpClientErrorException e) {
-            // HTTP 요청 오류가 발생한 경우
+            // Google OAuth2 API 호출 실패 처리
             log.error("Google OAuth2 API 호출 실패 (HTTP {}): {}", e.getStatusCode(), e.getResponseBodyAsString());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("OAuth2 API 호출 실패: " + e.getResponseBodyAsString());
+
+            // 'invalid_grant' 오류에 대해 구체적으로 처리
+            String errorMessage = e.getResponseBodyAsString();
+            if (errorMessage.contains("invalid_grant")) {
+                // 인증 코드 만료
+                if (errorMessage.contains("expired_token")) {
+                    log.error("OAuth2 오류 발생: 인증 코드 만료. 새로운 인증을 시도해주세요.");
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("인증 코드가 만료되었습니다. 새로운 인증을 시도해주세요.");
+                }
+
+                // URI 불일치 오류
+                if (errorMessage.contains("redirect_uri_mismatch")) {
+                    log.error("OAuth2 오류 발생: 리디렉션 URI 불일치. 등록된 URI와 일치하지 않습니다.");
+                    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("리디렉션 URI가 불일치합니다. 다시 시도해주세요.");
+                }
+
+                // 그 외 다른 invalid_grant 오류 처리
+                log.error("OAuth2 오류 발생: 인증 코드가 유효하지 않거나 다른 문제가 발생했습니다.");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("인증 코드가 유효하지 않거나 다른 문제가 발생했습니다.");
+            }
+
+            // HTTP 응답의 본문을 로깅하여 오류의 원인을 구체적으로 추적합니다.
+            log.error("구글에서 반환한 오류 내용: {}", e.getResponseBodyAsString());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("OAuth2 API 호출 실패: " + e.getResponseBodyAsString());
+
         } catch (RuntimeException e) {
             // 잘못된 인증 코드 또는 기타 런타임 오류
             log.error("OAuth2 Callback 처리 중 오류: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("잘못된 인증 코드: " + e.getMessage());
+
         } catch (Exception e) {
             // 그 외의 일반적인 예외
             log.error("기타 OAuth2 Callback 처리 중 오류: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("OAuth2 처리 중 오류 발생: " + e.getMessage());
         }
     }
+
 
 
 
