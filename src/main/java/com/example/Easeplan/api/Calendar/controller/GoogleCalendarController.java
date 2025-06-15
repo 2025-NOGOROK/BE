@@ -191,16 +191,20 @@ public class GoogleCalendarController {
             String email = (String) userInfo.get("email");
 
             // 3. 사용자 정보 업데이트 또는 새로 생성
-            User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-            // 4. 토큰과 만료 시각 갱신
+            // 4. 받은 code를 DB에 저장 (Optional)
+            user.setGoogleAuthCode(code);  // 구글 OAuth 코드 저장
+
+            // 5. 토큰과 만료 시각 갱신
             LocalDateTime newExpiresAt = LocalDateTime.now().plusSeconds(3600); // 예시: 1시간 후 만료
             user.updateGoogleTokens(accessToken, refreshToken, newExpiresAt);
 
-            // 5. DB에 저장
-            userRepository.save(user);
+            // 6. DB에 저장
+            userRepository.save(user);  // DB에 저장
 
-            // 6. JWT 발급
+            // 7. JWT 발급
             String jwtToken = jwtProvider.createToken(user.getEmail());
 
             return ResponseEntity.ok(Map.of(
@@ -213,6 +217,7 @@ public class GoogleCalendarController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("OAuth 실패");
         }
     }
+
 
 
 
