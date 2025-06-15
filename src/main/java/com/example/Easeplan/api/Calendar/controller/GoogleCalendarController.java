@@ -37,6 +37,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.web.client.HttpClientErrorException;
+
 @Slf4j
 @Tag(name = "GoogleCalendar", description = "구글캘린더 API")
 @RestController
@@ -178,7 +180,7 @@ public class GoogleCalendarController {
         - `jwt`: 백엔드 시스템의 인증을 위한 JWT
     """
     )
-    @GetMapping("/callback")
+    @GetMapping("/auth/google/callback")
     public ResponseEntity<?> googleCallback(@RequestParam String code) {
         try {
             // 1. 받은 code로 액세스 토큰과 리프레시 토큰을 받음
@@ -213,11 +215,22 @@ public class GoogleCalendarController {
                     "jwt", jwtToken
             ));
 
+        } catch (HttpClientErrorException e) {
+            // HTTP 요청 오류가 발생한 경우
+            log.error("Google OAuth2 API 호출 실패 (HTTP {}): {}", e.getStatusCode(), e.getResponseBodyAsString());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("OAuth2 API 호출 실패: " + e.getResponseBodyAsString());
+        } catch (RuntimeException e) {
+            // 잘못된 인증 코드 또는 기타 런타임 오류
+            log.error("OAuth2 Callback 처리 중 오류: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("잘못된 인증 코드: " + e.getMessage());
         } catch (Exception e) {
-            log.error("OAuth2 Callback Error: {}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("OAuth 실패");
+            // 그 외의 일반적인 예외
+            log.error("기타 OAuth2 Callback 처리 중 오류: {}", e.getMessage(), e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("OAuth2 처리 중 오류 발생: " + e.getMessage());
         }
     }
+
+
 
 
 
