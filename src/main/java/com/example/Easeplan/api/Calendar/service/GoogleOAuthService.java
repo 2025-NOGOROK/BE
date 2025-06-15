@@ -40,6 +40,7 @@ public class GoogleOAuthService {
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("code", code);
         params.add("client_id", googleOAuthProperties.getClientId());  // Android 클라이언트 ID
+        params.add("redirect_uri", googleOAuthProperties.getRedirectUri());  // 백엔드 리디렉션 URI
         params.add("redirect_uri", googleOAuthProperties.getRedirectUri());  // 모바일 앱의 딥링크 URI
         params.add("grant_type", "authorization_code");
 
