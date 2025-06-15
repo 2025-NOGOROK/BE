@@ -39,29 +39,22 @@ public class GoogleOAuthService {
         String url = "https://oauth2.googleapis.com/token";
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("code", code);
-        params.add("client_id", googleOAuthProperties.getClientId());  // Android 클라이언트 ID
-        params.add("redirect_uri", googleOAuthProperties.getRedirectUri());  // Android 앱에서 사용하는 딥링크 URI
+        params.add("client_id", googleOAuthProperties.getClientId()); // 안드로이드 클라이언트 ID
+        params.add("redirect_uri", googleOAuthProperties.getRedirectUri()); // 안드로이드 딥링크 URI
         params.add("grant_type", "authorization_code");
-
-        // client_secret 필요 없을 경우, 이 부분을 제거할 수 있습니다
-        if (googleOAuthProperties.getClientSecret() != null && !googleOAuthProperties.getClientSecret().isEmpty()) {
-            params.add("client_secret", googleOAuthProperties.getClientSecret());
-        }
-
+        // client_secret은 Android 클라이언트라면 생략
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
         RestTemplate restTemplate = new RestTemplate();
         ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
-
         if (response.getStatusCode() != HttpStatus.OK) {
             log.error("Token exchange failed: HTTP {} - {}", response.getStatusCode(), response.getBody());
             throw new RuntimeException("Token exchange failed: " + response.getBody());
         }
-
         return response.getBody();
     }
+
 
 
     /**
