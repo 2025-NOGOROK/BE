@@ -1,12 +1,12 @@
 package com.example.Easeplan.global.auth.dto;
 
 import lombok.Builder;
+import lombok.Getter;
 
+@Getter
 @Builder
-public record TokenResponse(
-        String accessToken,
-        String refreshToken,
-        String message
-) {
-
+public class TokenResponse {
+    private String accessToken;
+    private String refreshToken;
+    private String googleAccessToken;  // Add this field if it is part of the response
 }
