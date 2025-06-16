@@ -201,7 +201,7 @@ public class GoogleCalendarController {
             // 4. Google 액세스 토큰 및 리프레시 토큰을 User에 저장
             user.setGoogleAccessToken(accessToken);
             user.setGoogleRefreshToken(refreshToken);
-            user.setGoogleAccessTokenExpiresAt(LocalDateTime.now().plusSeconds(7200)); // 예시: 2시간 후 만료
+            user.setGoogleAccessTokenExpiresAt(LocalDateTime.now().plusSeconds(7200)); // 예시: 1시간 후 만료
             user.setJwtToken(jwtProvider.createToken(user.getEmail())); // JWT 생성 후 저장
 
             // 5. DB에 저장 (토큰 갱신)
