@@ -14,6 +14,7 @@ public class GoogleOAuthProperties {
     private String redirectUri;
     private List<String> scope;
 
+
     public String getAndroidClientId() {
         return androidClientId;
     }
