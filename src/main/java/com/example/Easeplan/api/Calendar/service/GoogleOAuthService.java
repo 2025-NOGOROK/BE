@@ -73,19 +73,20 @@ public class GoogleOAuthService {
 
     @Transactional
     public String getOrRefreshGoogleAccessToken(User user) {
+        // 리프레시 토큰이 없으면 액세스 토큰 갱신이 불가능
         if (user.getGoogleRefreshToken() == null || user.getGoogleRefreshToken().isEmpty()) {
-            log.warn("Android 기반 인증 사용자 - refresh_token 없음. 앱에서 access_token 갱신 필요.");
+            log.warn("리프레시 토큰 없음. 구글 액세스 토큰만 반환.");
             return user.getGoogleAccessToken();
         }
 
+        // 액세스 토큰 만료 여부 체크
         if (user.getGoogleAccessTokenExpiresAt() != null &&
                 LocalDateTime.now(ZoneOffset.UTC).plusMinutes(5).isBefore(user.getGoogleAccessTokenExpiresAt())) {
-            log.debug("Google access token still valid for user: {}. No refresh needed.", user.getEmail());
-            return user.getGoogleAccessToken();
+            log.debug("구글 액세스 토큰 유효: 만료되지 않았습니다.");
+            return user.getGoogleAccessToken();  // 액세스 토큰이 유효하면 기존 토큰을 그대로 반환
         }
 
-        log.info("Google access token expired or near expiration for user: {}. Attempting to refresh...", user.getEmail());
-
+        log.info("구글 액세스 토큰 만료됨. 리프레시 토큰으로 갱신 시도...");
         String url = "https://oauth2.googleapis.com/token";
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("client_id", googleOAuthProperties.getWebClientId());
@@ -96,38 +97,32 @@ public class GoogleOAuthService {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
-        RestTemplate restTemplate = new RestTemplate();
 
+        RestTemplate restTemplate = new RestTemplate();
         try {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
-
             if (response.getStatusCode() != HttpStatus.OK) {
-                log.error("액세스 토큰 갱신 실패 (HTTP {}): {}", response.getStatusCode(), response.getBody());
-                throw new RuntimeException("액세스 토큰 갱신 실패: " + response.getBody());
+                throw new RuntimeException("구글 액세스 토큰 갱신 실패");
             }
 
             Map<String, Object> body = response.getBody();
             String newAccessToken = (String) body.get("access_token");
-            Long expiresInSeconds = ((Number) body.get("expires_in")).longValue();
+            Long expiresIn = ((Number) body.get("expires_in")).longValue();
+            LocalDateTime expiresAt = LocalDateTime.now(ZoneOffset.UTC).plusSeconds(expiresIn);
 
-            LocalDateTime expiresAt = LocalDateTime.ofInstant(Instant.now().plusSeconds(expiresInSeconds), ZoneOffset.UTC);
-            user.updateGoogleTokens(newAccessToken, null, expiresAt);
+            // 갱신된 액세스 토큰 및 만료 시간을 DB에 저장
+            user.setGoogleAccessToken(newAccessToken);
             user.setGoogleAccessTokenExpiresAt(expiresAt);
             userRepository.save(user);
 
-            log.info("Google access token refreshed successfully for user: {}", user.getEmail());
+            log.info("구글 액세스 토큰 갱신 성공: {}", newAccessToken);
             return newAccessToken;
 
         } catch (HttpClientErrorException e) {
-            log.error("Google access token refresh client error for user {}: HTTP {} - {}", user.getEmail(), e.getStatusCode(), e.getResponseBodyAsString());
-            if (e.getStatusCode() == HttpStatus.BAD_REQUEST) {
-                log.warn("Invalid refresh token for user {}. Clearing tokens to force re-authentication.", user.getEmail());
-                user.updateGoogleTokens(null, null, null);
-                user.setGoogleAccessTokenExpiresAt(null);
-                userRepository.save(user);
-                throw new RuntimeException("Refresh token is invalid. User needs to re-authenticate with Google.", e);
-            }
-            throw new RuntimeException("Failed to refresh Google access token: " + e.getMessage(), e);
+            log.error("구글 액세스 토큰 갱신 오류: ", e);
+            throw new RuntimeException("액세스 토큰 갱신 실패: " + e.getMessage(), e);
         }
     }
+
+
 }
