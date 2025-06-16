@@ -293,18 +293,28 @@ public class GoogleCalendarController {
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam(defaultValue = "primary") String calendarId,
             @RequestParam String timeMin,
-            @RequestParam String timeMax
-    ) {
+            @RequestParam String timeMax) {
         try {
+            // 사용자 정보를 userDetails에서 가져와서 이메일로 사용자 찾기
             User user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
+            // 구글 액세스 토큰을 사용자로부터 가져오기
+            String googleAccessToken = user.getGoogleAccessToken();
+
+            if (googleAccessToken == null || googleAccessToken.isEmpty()) {
+                // 구글 액세스 토큰이 없으면 빈 리스트를 반환하거나 적절한 메시지를 포함한 리스트를 반환
+                List<FormattedTimeSlot> emptyResponse = Collections.emptyList();
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(emptyResponse);
+            }
+
+            // 구글 캘린더 이벤트 가져오기
             List<FormattedTimeSlot> events = calendarService.getFormattedEvents(user, calendarId, timeMin, timeMax);
             return ResponseEntity.ok(events);
         } catch (Exception e) {
-            log.error("구글 캘린더 이벤트 추가 중 예외 발생", e);
-            // 필요하다면 사용자에게 적절한 에러 메시지 반환
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            log.error("Error fetching Google Calendar events: ", e);
+            List<FormattedTimeSlot> errorResponse = Collections.singletonList(new FormattedTimeSlot("Error", "Error fetching events", "", ""));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 
