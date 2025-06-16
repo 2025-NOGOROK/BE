@@ -50,6 +50,8 @@ public class MyPageService {
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
         refreshTokenRepository.deleteByEmail(email); // 리프레시 토큰 삭제
         userRepository.delete(user); // 회원 삭제 (연관 데이터 자동 삭제)
+
+
     }
 
 
