@@ -39,6 +39,7 @@ import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.servlet.view.RedirectView;
 
 @Slf4j
 @Tag(name = "GoogleCalendar", description = "구글캘린더 API")
@@ -182,37 +183,45 @@ public class GoogleCalendarController {
     """
     )
     @GetMapping("/callback")
-    public ResponseEntity<?> googleCallback(@RequestParam String code, HttpServletResponse response) {
+    public RedirectView googleCallback(@RequestParam("code") String code) {
         try {
-            // 받은 code로 액세스 토큰과 리프레시 토큰을 받음
+            // 1. 받은 code로 액세스 토큰과 리프레시 토큰을 받음
             Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(code);
             String accessToken = (String) tokenResponse.get("access_token");
             String refreshToken = (String) tokenResponse.get("refresh_token");
 
-            // 구글 사용자 정보 조회
+            // 2. 구글 사용자 정보 조회
             Map<String, Object> userInfo = oAuthService.getGoogleUserInfo(accessToken);
             String email = (String) userInfo.get("email");
 
-            // 사용자 정보 업데이트 또는 새로 생성
-            User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
+            // 3. 사용자 정보 업데이트 또는 새로 생성
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-            // JWT 발급
+            // 4. Google 액세스 토큰 및 리프레시 토큰을 User에 저장
+            user.setGoogleAccessToken(accessToken);
+            user.setGoogleRefreshToken(refreshToken);
+            user.setGoogleAccessTokenExpiresAt(LocalDateTime.now().plusSeconds(3600)); // 예시: 1시간 후 만료
+
+            // 5. DB에 저장 (토큰 갱신)
+            userRepository.save(user);
+
+            // 6. JWT 발급
             String jwtToken = jwtProvider.createToken(user.getEmail());
 
-            // 딥링크 URL 생성 (JWT를 앱으로 리디렉션)
-            String redirectUri = "com.example.nogorok:/oauth2callback?jwt=" + jwtToken;
+            // 7. 딥링크 URL 생성 (JWT를 앱으로 리디렉션)
+            String redirectUri = "intent://oauth2callback?jwt=" + jwtToken + "#Intent;scheme=com.example.nogorok;package=com.example.nogorok;end";
 
-            // 302 리디렉션 응답 (딥링크 URI로 리디렉션)
-            response.setStatus(HttpServletResponse.SC_FOUND);
-            response.setHeader("Location", redirectUri);  // 리디렉션 URL 설정
-
-            return null;  // 리디렉션을 위해 아무것도 반환하지 않음
+            // 8. 앱 딥링크 URI로 리디렉션
+            return new RedirectView(redirectUri); // 리디렉션 URL을 반환
 
         } catch (Exception e) {
             log.error("구글 인증 처리 중 오류", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("OAuth2 처리 중 오류 발생");
+            return new RedirectView("/error"); // 오류 발생 시 에러 페이지로 리디렉션
         }
     }
+
+
 
 
 
