@@ -90,6 +90,10 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "google_access_token_expires_at")
     private LocalDateTime googleAccessTokenExpiresAt;
 
+    @Column(name = "jwt_token")
+    private String jwtToken;
+
+
     /**
      * 구글 OAuth 토큰 정보를 업데이트합니다.
      * @param newAccessToken 새로 발급받은 액세스 토큰
