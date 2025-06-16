@@ -15,7 +15,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -39,14 +38,16 @@ public class GoogleOAuthService {
         String url = "https://oauth2.googleapis.com/token";
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("code", code);
-        params.add("client_id", googleOAuthProperties.getClientId()); // 안드로이드 클라이언트 ID
-        params.add("redirect_uri", googleOAuthProperties.getRedirectUri()); // 안드로이드 딥링크 URI
+        params.add("client_id", googleOAuthProperties.getWebClientId());
+        params.add("client_secret", googleOAuthProperties.getClientSecret());
+        params.add("redirect_uri", googleOAuthProperties.getRedirectUri());
         params.add("grant_type", "authorization_code");
-        // client_secret은 Android 클라이언트라면 생략
+
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
         RestTemplate restTemplate = new RestTemplate();
+
         ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
         if (response.getStatusCode() != HttpStatus.OK) {
             log.error("Token exchange failed: HTTP {} - {}", response.getStatusCode(), response.getBody());
@@ -54,8 +55,6 @@ public class GoogleOAuthService {
         }
         return response.getBody();
     }
-
-
 
     /**
      * Google API에서 사용자 정보를 조회
@@ -65,7 +64,7 @@ public class GoogleOAuthService {
     public Map<String, Object> getGoogleUserInfo(String accessToken) {
         String url = "https://www.googleapis.com/oauth2/v2/userinfo";
         HttpHeaders headers = new HttpHeaders();
-        headers.setBearerAuth(accessToken);  // Bearer 방식으로 Authorization 헤더에 액세스 토큰 포함
+        headers.setBearerAuth(accessToken);
         HttpEntity<String> request = new HttpEntity<>(headers);
         RestTemplate restTemplate = new RestTemplate();
         ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.GET, request, Map.class);
@@ -89,17 +88,16 @@ public class GoogleOAuthService {
 
         String url = "https://oauth2.googleapis.com/token";
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
-        params.add("client_id", googleOAuthProperties.getClientId());  // Android 클라이언트 ID
-        params.add("client_secret", googleOAuthProperties.getClientSecret());  // 웹 클라이언트 ID
+        params.add("client_id", googleOAuthProperties.getWebClientId());
+        params.add("client_secret", googleOAuthProperties.getClientSecret());
         params.add("refresh_token", user.getGoogleRefreshToken());
         params.add("grant_type", "refresh_token");
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-
         HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
-
         RestTemplate restTemplate = new RestTemplate();
+
         try {
             ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
 
@@ -112,10 +110,7 @@ public class GoogleOAuthService {
             String newAccessToken = (String) body.get("access_token");
             Long expiresInSeconds = ((Number) body.get("expires_in")).longValue();
 
-            // expiresAt을 먼저 선언
             LocalDateTime expiresAt = LocalDateTime.ofInstant(Instant.now().plusSeconds(expiresInSeconds), ZoneOffset.UTC);
-
-            // 그리고 나서 updateGoogleTokens에 전달
             user.updateGoogleTokens(newAccessToken, null, expiresAt);
             user.setGoogleAccessTokenExpiresAt(expiresAt);
             userRepository.save(user);
@@ -136,4 +131,3 @@ public class GoogleOAuthService {
         }
     }
 }
-
