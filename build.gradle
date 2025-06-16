@@ -43,6 +43,9 @@ dependencies {
 	// seleniumhq
 	implementation 'org.seleniumhq.selenium:selenium-java:4.10.0'
 
+	implementation('org.springframework.boot:spring-boot-starter-logging') {
+		exclude group: 'org.slf4j', module: 'slf4j-simple'
+	}
 
 
 	//jwt

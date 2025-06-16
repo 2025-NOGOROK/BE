@@ -16,6 +16,7 @@ import com.google.api.services.calendar.model.Event;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
@@ -53,7 +54,14 @@ public class GoogleCalendarController {
     private final GoogleCalendarService calendarService;
     private final NotificationScheduler notificationScheduler;
     private final UserRepository userRepository;
+    @Autowired
+    private GoogleCalendarService googleCalendarService;
 
+
+
+
+    @Autowired
+    private JwtUtil jwtUtil;
     private final JwtUtil jwtProvider;
 
     public GoogleCalendarController(GoogleOAuthService oAuthService, GoogleCalendarService calendarService, NotificationScheduler notificationScheduler, UserRepository userRepository, JwtUtil jwtProvider) {
@@ -289,34 +297,24 @@ public class GoogleCalendarController {
     )
 
     @GetMapping("/events")
-    public ResponseEntity<List<FormattedTimeSlot>> getEvents(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @RequestParam(defaultValue = "primary") String calendarId,
+    public List<FormattedTimeSlot> getGoogleCalendarEvents(
+            @RequestHeader("Authorization") String authorizationHeader,  // Authorization 헤더에서 JWT를 가져옴
+            @RequestParam String calendarId,
             @RequestParam String timeMin,
-            @RequestParam String timeMax) {
-        try {
-            // 사용자 정보를 userDetails에서 가져와서 이메일로 사용자 찾기
-            User user = userRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+            @RequestParam String timeMax) throws Exception {
 
-            // 구글 액세스 토큰을 사용자로부터 가져오기
-            String googleAccessToken = user.getGoogleAccessToken();
+        // Bearer 접두사 제거
+        String jwtToken = jwtUtil.cleanBearer(authorizationHeader);  // Bearer " " 제거 후 JWT 얻기
 
-            if (googleAccessToken == null || googleAccessToken.isEmpty()) {
-                // 구글 액세스 토큰이 없으면 빈 리스트를 반환하거나 적절한 메시지를 포함한 리스트를 반환
-                List<FormattedTimeSlot> emptyResponse = Collections.emptyList();
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(emptyResponse);
-            }
+        // JWT 토큰에서 이메일을 추출하여 User 객체를 가져옴
+        String email = jwtUtil.getEmailFromToken(jwtToken);  // JWT에서 이메일을 추출
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-            // 구글 캘린더 이벤트 가져오기
-            List<FormattedTimeSlot> events = calendarService.getFormattedEvents(user, calendarId, timeMin, timeMax);
-            return ResponseEntity.ok(events);
-        } catch (Exception e) {
-            log.error("Error fetching Google Calendar events: ", e);
-            List<FormattedTimeSlot> errorResponse = Collections.singletonList(new FormattedTimeSlot("Error", "Error fetching events", "", ""));
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
-        }
+        // 구글 캘린더 이벤트 조회
+        return googleCalendarService.getFormattedEvents(user, calendarId, timeMin, timeMax);
     }
+
 
 
 
