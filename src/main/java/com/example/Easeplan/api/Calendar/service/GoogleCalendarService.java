@@ -1,11 +1,11 @@
 package com.example.Easeplan.api.Calendar.service;
 
+import com.example.Easeplan.api.Calendar.config.GoogleOAuthProperties;
 import com.example.Easeplan.api.Calendar.dto.FormattedTimeSlot;
 import com.example.Easeplan.api.Calendar.dto.TimeSlot;
 import com.example.Easeplan.global.auth.domain.User;
 import com.example.Easeplan.global.auth.repository.UserRepository;
 
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.json.gson.GsonFactory;
 import com.google.api.client.util.DateTime;
@@ -15,8 +15,6 @@ import com.google.api.services.calendar.model.*;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.UserCredentials;
-import lombok.Getter;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -29,59 +27,39 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class GoogleCalendarService {
-    @Value("${google.client-id}")
-    private String clientId;
 
-//    @Value("${google.client-secret}")
-//    private String clientSecret;
-
-    @Value("${google.redirect-uri}")
-    private String redirectUri;
-
-//    @Value("${google.scope}")
-//    private List<String> scopes;  // 자동으로 List<String> 형태로 주입됩니다.
-
-
+    private final GoogleOAuthProperties googleOAuthProperties;
     private final GoogleOAuthService oAuthService;
-    private final UserRepository userRepository; // User 엔티티를 직접 수정할 필요는 없지만, 주입되어 있다면 유지
+    private final UserRepository userRepository;
 
-    public GoogleCalendarService(GoogleOAuthService oAuthService, UserRepository userRepository) {
+    public GoogleCalendarService(GoogleOAuthService oAuthService, UserRepository userRepository, GoogleOAuthProperties googleOAuthProperties) {
         this.oAuthService = oAuthService;
         this.userRepository = userRepository;
+        this.googleOAuthProperties = googleOAuthProperties;
     }
 
-    /**
-     * User 객체를 기반으로 구글 캘린더 서비스를 생성합니다.
-     * 이 메서드는 oAuthService를 통해 항상 유효한 access_token을 가져와 사용합니다.
-     * @param user 현재 로그인한 사용자 엔티티 (구글 토큰 정보를 포함)
-     * @return 구글 캘린더 API 서비스 객체
-     * @throws Exception HTTP 전송 또는 JSON 파싱 중 오류 발생 시
-     */
     public Calendar getCalendarService(User user) throws Exception {
         String accessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
-        String refreshToken = user.getGoogleRefreshToken(); // User 객체에서 refresh token 가져오기
+        String refreshToken = user.getGoogleRefreshToken();
 
-        // UserCredentials를 사용하여 인증 객체 생성
         UserCredentials userCredentials = UserCredentials.newBuilder()
-                .setClientId(clientId)
+                .setClientId(googleOAuthProperties.getWebClientId())
+                .setClientSecret(googleOAuthProperties.getClientSecret())
                 .setRefreshToken(refreshToken)
-                .setAccessToken(new AccessToken(accessToken, null)) // 만료일 관리 필요시 두 번째 파라미터에 만료일 전달
+                .setAccessToken(new AccessToken(accessToken, null))
                 .build();
 
         HttpCredentialsAdapter requestInitializer = new HttpCredentialsAdapter(userCredentials);
 
-        Calendar service = new Calendar.Builder(
+        return new Calendar.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 GsonFactory.getDefaultInstance(),
                 requestInitializer
         ).setApplicationName("Easeplan").build();
-        return service;
     }
 
-    // --- (이하 모든 캘린더 API 호출 메서드는 user 객체를 첫 번째 인자로 받도록 변경) ---
-
     public Events getEvents(User user, String calendarId, String timeMinStr, String timeMaxStr) throws Exception {
-        Calendar service = getCalendarService(user); // User 객체 전달
+        Calendar service = getCalendarService(user);
         DateTime timeMin = new DateTime(timeMinStr);
         DateTime timeMax = new DateTime(timeMaxStr);
 
@@ -94,33 +72,14 @@ public class GoogleCalendarService {
                 .execute();
     }
 
-    public List<FormattedTimeSlot> getFormattedEvents(
-            User user,
-            String calendarId,
-            String timeMin,
-            String timeMax
-    ) throws Exception {
+    public List<FormattedTimeSlot> getFormattedEvents(User user, String calendarId, String timeMin, String timeMax) throws Exception {
         Events events = getEvents(user, calendarId, timeMin, timeMax);
         List<FormattedTimeSlot> slots = new ArrayList<>();
         for (Event event : events.getItems()) {
             String title = event.getSummary();
             String description = event.getDescription();
-            String startDateTime;
-            if (event.getStart().getDateTime() != null) {
-                startDateTime = event.getStart().getDateTime().toStringRfc3339();
-            } else if (event.getStart().getDate() != null) {
-                startDateTime = event.getStart().getDate().toString();
-            } else {
-                startDateTime = null;
-            }
-            String endDateTime;
-            if (event.getEnd().getDateTime() != null) {
-                endDateTime = event.getEnd().getDateTime().toStringRfc3339();
-            } else if (event.getEnd().getDate() != null) {
-                endDateTime = event.getEnd().getDate().toString();
-            } else {
-                endDateTime = null;
-            }
+            String startDateTime = event.getStart().getDateTime() != null ? event.getStart().getDateTime().toStringRfc3339() : event.getStart().getDate() != null ? event.getStart().getDate().toString() : null;
+            String endDateTime = event.getEnd().getDateTime() != null ? event.getEnd().getDateTime().toStringRfc3339() : event.getEnd().getDate() != null ? event.getEnd().getDate().toString() : null;
             slots.add(new FormattedTimeSlot(title, description, startDateTime, endDateTime));
         }
         return slots;
@@ -196,29 +155,14 @@ public class GoogleCalendarService {
         return formattedSlots;
     }
 
-    public Event addEvent(
-            User user,
-            String calendarId,
-            String title,
-            String description,
-            String startDateTime,
-            String endDateTime,
-            boolean serverAlarm,
-            int minutesBeforeAlarm,
-            boolean fixed,
-            boolean userLabel
-    ) throws Exception {
+    public Event addEvent(User user, String calendarId, String title, String description, String startDateTime, String endDateTime, boolean serverAlarm, int minutesBeforeAlarm, boolean fixed, boolean userLabel) throws Exception {
         Calendar service = getCalendarService(user);
 
         Event event = new Event()
                 .setSummary(title)
                 .setDescription(description)
-                .setStart(new EventDateTime()
-                        .setDateTime(new DateTime(startDateTime))
-                        .setTimeZone("Asia/Seoul"))
-                .setEnd(new EventDateTime()
-                        .setDateTime(new DateTime(endDateTime))
-                        .setTimeZone("Asia/Seoul"));
+                .setStart(new EventDateTime().setDateTime(new DateTime(startDateTime)).setTimeZone("Asia/Seoul"))
+                .setEnd(new EventDateTime().setDateTime(new DateTime(endDateTime)).setTimeZone("Asia/Seoul"));
 
         Map<String, String> customProps = new HashMap<>();
         customProps.put("serverAlarm", String.valueOf(serverAlarm));
@@ -239,11 +183,7 @@ public class GoogleCalendarService {
         return service.events().insert(calendarId, event).execute();
     }
 
-    public void deleteEvent(
-            User user,
-            String calendarId,
-            String eventId
-    ) throws Exception {
+    public void deleteEvent(User user, String calendarId, String eventId) throws Exception {
         Calendar service = getCalendarService(user);
         service.events().delete(calendarId, eventId).execute();
     }
