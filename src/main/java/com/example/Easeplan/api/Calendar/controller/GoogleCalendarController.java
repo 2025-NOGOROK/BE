@@ -45,8 +45,8 @@ import org.springframework.web.client.HttpClientErrorException;
 @RequestMapping("/auth/google")
 public class GoogleCalendarController {
 
-    @Value("${google.client-id}")
-    private String googleClientId;
+//    @Value("${google.client-id}")
+//    private String googleClientId;
     private final GoogleOAuthService oAuthService;
     private final GoogleCalendarService calendarService;
     private final NotificationScheduler notificationScheduler;
