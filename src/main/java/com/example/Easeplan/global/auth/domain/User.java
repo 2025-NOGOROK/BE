@@ -99,16 +99,17 @@ public class User extends BaseEntity implements UserDetails {
      * @param newAccessToken 새로 발급받은 액세스 토큰
      * @param newRefreshToken 새로 발급받은 리프레시 토큰 (없으면 null 또는 빈 문자열)
      */
-    public void updateGoogleTokens(String newAccessToken, String newRefreshToken, LocalDateTime expiresAt) {
+    public void updateGoogleTokens(String newAccessToken, String newRefreshToken, LocalDateTime expiresAt, String newJwtToken) {
         this.googleAccessToken = newAccessToken;
 
-        // refresh token은 최초 발급 시 또는 아주 드물게 갱신될 때만 넘어옵니다.
         if (newRefreshToken != null && !newRefreshToken.isEmpty()) {
             this.googleRefreshToken = newRefreshToken;
         }
 
-        // googleAccessTokenExpiresAt을 설정합니다.
         this.googleAccessTokenExpiresAt = expiresAt;
+
+        // 구글 JWT 갱신
+        this.jwtToken = newJwtToken;  // 구글 JWT 저장
     }
 
 

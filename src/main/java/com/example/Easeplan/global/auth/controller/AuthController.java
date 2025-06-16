@@ -1,6 +1,9 @@
 package com.example.Easeplan.global.auth.controller;
 
+import com.example.Easeplan.api.Calendar.service.GoogleOAuthService;
+import com.example.Easeplan.global.auth.domain.User;
 import com.example.Easeplan.global.auth.dto.*;
+import com.example.Easeplan.global.auth.repository.UserRepository;
 import com.example.Easeplan.global.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -21,9 +24,15 @@ import java.util.Optional;
 public class AuthController {
 
     private final AuthService authService;
+    private final GoogleOAuthService oAuthService;
+    private final UserRepository userRepository;
+    private final JwtUtil jwtProvider;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, GoogleOAuthService oAuthService, UserRepository userRepository, JwtUtil jwtProvider) {
         this.authService = authService;
+        this.oAuthService = oAuthService;
+        this.userRepository = userRepository;
+        this.jwtProvider = jwtProvider;
     }
 
     // 커스텀 응답 클래스
@@ -103,19 +112,42 @@ public class AuthController {
 
     }
     @Operation(summary = "로그인", description = """
-            로그인을 진행합니다.""")
+        로그인을 진행합니다.""")
     @PostMapping("/signIn")
     public ResponseEntity<CustomResponse<TokenResponse>> signIn(@RequestBody SignInRequest request) {
         try {
+            // 사용자 로그인 진행
             TokenResponse response = authService.signIn(request);
+
+            // 로그인 후 구글 액세스 토큰을 갱신하고 JWT 생성
+            if (response.getGoogleAccessToken() != null) {
+                // 구글 토큰 갱신 (구글 토큰이 존재할 경우)
+                User user = userRepository.findByEmail(request.getEmail())
+                        .orElseThrow(() -> new RuntimeException("User not found"));
+
+                String newAccessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
+                String newJwtToken = jwtProvider.createToken(user.getEmail());  // JWT 새로 생성
+
+                // 구글 액세스 토큰과 새로 생성된 JWT를 응답에 추가
+                response.setGoogleAccessToken(newAccessToken);  // 새로 갱신된 구글 액세스 토큰
+                response.setJwtToken(newJwtToken);  // 새로 생성된 JWT
+
+                // 사용자 정보 업데이트
+                user.updateGoogleTokens(newAccessToken, user.getGoogleRefreshToken(), user.getGoogleAccessTokenExpiresAt(), newJwtToken);
+                userRepository.save(user);
+            }
+
+            // JWT 응답 반환
             return ResponseEntity.status(HttpStatus.OK)
                     .body(new CustomResponse<>("로그인에 성공했습니다.", response));
+
         } catch (IllegalArgumentException e) {
             // 비밀번호 불일치, 존재하지 않는 사용자 등
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(new CustomResponse<>(e.getMessage(), null));
         }
     }
+
     @Operation(summary = "비밀번호 변경 시 이메일 확인", description = """
             비밀번호를 변경 시 이메일을 조회합니다.""")
     @PostMapping("/checkEmail")
