@@ -89,9 +89,9 @@ public class AuthService {
 
     @Transactional
     public TokenResponse signIn(SignInRequest request) {
-        User user = userRepository.findByEmail(request.email())
+        User user = userRepository.findByEmail(request.getEmail())  // 수정된 메서드 호출
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
+        if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
 
@@ -119,6 +119,7 @@ public class AuthService {
                 .googleAccessToken(newGoogleAccessToken)  // 구글 액세스 토큰
                 .build();
     }
+
 
 
     public boolean existsByEmail(String email) {
