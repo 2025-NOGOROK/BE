@@ -182,48 +182,38 @@ public class GoogleCalendarController {
     """
     )
     @GetMapping("/callback")
-    public ResponseEntity<?> googleCallback(@RequestParam String code) {
+    public ResponseEntity<?> googleCallback(@RequestParam String code, HttpServletResponse response) {
         try {
-            // 1. 구글 인증 코드로 액세스 토큰과 리프레시 토큰을 받음
+            // 받은 code로 액세스 토큰과 리프레시 토큰을 받음
             Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(code);
-
             String accessToken = (String) tokenResponse.get("access_token");
             String refreshToken = (String) tokenResponse.get("refresh_token");
 
-            // 2. 구글 사용자 정보 조회
+            // 구글 사용자 정보 조회
             Map<String, Object> userInfo = oAuthService.getGoogleUserInfo(accessToken);
             String email = (String) userInfo.get("email");
 
-            // 3. 사용자 정보 업데이트 또는 새로 생성
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+            // 사용자 정보 업데이트 또는 새로 생성
+            User user = userRepository.findByEmail(email).orElseThrow(() -> new RuntimeException("User not found"));
 
-            // 4. 받은 code를 DB에 저장 (Optional)
-            user.setGoogleAuthCode(code);  // 구글 OAuth 코드 저장
-
-            // 5. 토큰과 만료 시각 갱신
-            LocalDateTime newExpiresAt = LocalDateTime.now().plusSeconds(3600); // 예시: 1시간 후 만료
-            user.updateGoogleTokens(accessToken, refreshToken, newExpiresAt);
-
-            // 6. DB에 저장
-            userRepository.save(user);  // DB에 저장
-
-            // 7. JWT 발급
+            // JWT 발급
             String jwtToken = jwtProvider.createToken(user.getEmail());
 
-            // 8. 딥링크 URL 생성 (JWT를 앱으로 리디렉션)
+            // 딥링크 URL 생성 (JWT를 앱으로 리디렉션)
             String redirectUri = "com.example.nogorok:/oauth2callback?jwt=" + jwtToken;
 
-            // 9. 302 리디렉션 응답 (딥링크 URI로 리디렉션)
-            return ResponseEntity.status(HttpStatus.FOUND)
-                    .location(URI.create(redirectUri))  // 딥링크 URI로 리디렉션
-                    .build();
+            // 302 리디렉션 응답 (딥링크 URI로 리디렉션)
+            response.setStatus(HttpServletResponse.SC_FOUND);
+            response.setHeader("Location", redirectUri);  // 리디렉션 URL 설정
+
+            return null;  // 리디렉션을 위해 아무것도 반환하지 않음
 
         } catch (Exception e) {
             log.error("구글 인증 처리 중 오류", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("OAuth2 처리 중 오류 발생");
         }
     }
+
 
 
 
