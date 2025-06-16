@@ -1,5 +1,6 @@
 package com.example.Easeplan.global.auth.service;
 
+import com.example.Easeplan.api.Calendar.service.GoogleOAuthService;
 import com.example.Easeplan.global.auth.domain.User;
 import com.example.Easeplan.global.auth.dto.*;
 import com.example.Easeplan.global.auth.repository.RefreshTokenRepository;
@@ -20,11 +21,16 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final BCryptPasswordEncoder passwordEncoder;
 
-    public AuthService(JwtUtil jwtUtil, UserRepository userRepository, RefreshTokenRepository refreshTokenRepository, BCryptPasswordEncoder passwordEncoder) {
+    private final GoogleOAuthService oAuthService;
+
+    // Constructor Injection for required dependencies
+    public AuthService(JwtUtil jwtUtil, UserRepository userRepository, RefreshTokenRepository refreshTokenRepository,
+                       BCryptPasswordEncoder passwordEncoder, GoogleOAuthService oAuthService) {
         this.jwtUtil = jwtUtil;
         this.userRepository = userRepository;
         this.refreshTokenRepository = refreshTokenRepository;
         this.passwordEncoder = passwordEncoder;
+        this.oAuthService = oAuthService;
     }
 
     @Transactional
@@ -88,6 +94,11 @@ public class AuthService {
         if (!passwordEncoder.matches(request.password(), user.getPassword())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
+
+        // 1. 구글 액세스 토큰 갱신 (리프레시 토큰으로)
+        String newGoogleAccessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
+
+        // 2. 리프레시 토큰과 함께 새로운 JWT 발급
         RefreshToken refreshTokenEntity = refreshTokenRepository.findByEmail(user.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("토큰이 존재하지 않습니다."));
         String refreshToken = refreshTokenEntity.getToken();
@@ -101,11 +112,14 @@ public class AuthService {
             accessToken = jwtUtil.createAccessToken(user);
         }
 
+        // 구글 액세스 토큰을 포함한 응답 반환
         return TokenResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
+                .accessToken(accessToken)         // 자체 애플리케이션의 액세스 토큰
+                .refreshToken(refreshToken)       // 애플리케이션의 리프레시 토큰
+                .googleAccessToken(newGoogleAccessToken)  // 구글 액세스 토큰
                 .build();
     }
+
 
     public boolean existsByEmail(String email) {
         return userRepository.findByEmail(email).isPresent();
