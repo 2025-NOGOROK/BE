@@ -100,15 +100,44 @@ public class GoogleCalendarService {
     public List<FormattedTimeSlot> getFormattedEvents(User user, String calendarId, String timeMin, String timeMax) throws Exception {
         Events events = getEvents(user, calendarId, timeMin, timeMax);
         List<FormattedTimeSlot> slots = new ArrayList<>();
+
         for (Event event : events.getItems()) {
             String title = event.getSummary();
             String description = event.getDescription();
-            String startDateTime = event.getStart().getDateTime() != null ? event.getStart().getDateTime().toStringRfc3339() : event.getStart().getDate() != null ? event.getStart().getDate().toString() : null;
-            String endDateTime = event.getEnd().getDateTime() != null ? event.getEnd().getDateTime().toStringRfc3339() : event.getEnd().getDate() != null ? event.getEnd().getDate().toString() : null;
-            slots.add(new FormattedTimeSlot(title, description, startDateTime, endDateTime));
+            String startDateTime = event.getStart().getDateTime() != null
+                    ? event.getStart().getDateTime().toStringRfc3339()
+                    : event.getStart().getDate() != null
+                    ? event.getStart().getDate().toString()
+                    : null;
+            String endDateTime = event.getEnd().getDateTime() != null
+                    ? event.getEnd().getDateTime().toStringRfc3339()
+                    : event.getEnd().getDate() != null
+                    ? event.getEnd().getDate().toString()
+                    : null;
+
+            // sourceType을 동적으로 설정
+            String sourceType = "calendar"; // 기본값은 "calendar"
+            if ("설문 기반 추천".equals(description)) {
+                sourceType = "short-recommend"; // description이 "설문 기반 추천"인 경우 "short-recommend"
+            }
+
+            // FormattedTimeSlot 생성 시 sourceType 설정
+            slots.add(new FormattedTimeSlot(
+                    title,
+                    description,
+                    startDateTime,
+                    endDateTime,
+                    sourceType  // 동적으로 설정된 sourceType
+            ));
+
+            // 디버깅 로그
+            log.debug("Event: {} | Description: {} | SourceType: {}", title, description, sourceType);
         }
+
         return slots;
     }
+
+
 
     public List<TimeSlot> getFreeTimeSlots(User user, LocalDate date) throws Exception {
         Calendar service = getCalendarService(user);
@@ -169,16 +198,19 @@ public class GoogleCalendarService {
             ZonedDateTime start = Instant.ofEpochMilli(slot.getStart().getValue()).atZone(seoulZone);
             ZonedDateTime end = Instant.ofEpochMilli(slot.getEnd().getValue()).atZone(seoulZone);
 
+            // Use empty strings for title and description if they are null
             formattedSlots.add(new FormattedTimeSlot(
-                    null,
-                    null,
+                    "",  // Empty string for title
+                    "",  // Empty string for description
                     start.format(isoFormatter),
-                    end.format(isoFormatter)
+                    end.format(isoFormatter),
+                    "long-recommend"
             ));
         }
 
         return formattedSlots;
     }
+
 
     public Event addEvent(User user, String calendarId, String title, String description, String startDateTime, String endDateTime, boolean serverAlarm, int minutesBeforeAlarm, boolean fixed, boolean userLabel) throws Exception {
         Calendar service = getCalendarService(user);
