@@ -20,10 +20,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -50,7 +48,8 @@ public class LongService {
     @Value("${culture.api.service-key}")
     private String serviceKey;
 
-
+    @Value("${flask.short-reco}")  // 플라스크 서버의 짧은 추천 API 주소
+    private String flaskShortRecoApi;
 
     private LocalDate safeParseDate(String dateStr) {
         try {
@@ -62,27 +61,155 @@ public class LongService {
             return LocalDate.now();
         }
     }
+
+    public List<FormattedTimeSlot> getShortRecommendations(LocalDate targetDate, List<FormattedTimeSlot> availableSlots) {
+        List<FormattedTimeSlot> shortRecommendations = new ArrayList<>();
+
+        try {
+            RestTemplate restTemplate = new RestTemplate();
+            String url = flaskShortRecoApi + "?date=" + targetDate;
+
+            // 플라스크 API 호출
+            ResponseEntity<List<RecommendationOption>> response = restTemplate.exchange(url, HttpMethod.GET, null,
+                    new ParameterizedTypeReference<List<RecommendationOption>>() {});
+
+            List<RecommendationOption> recommendationOptions = response.getBody();
+
+            if (recommendationOptions != null && !recommendationOptions.isEmpty()) {
+                for (RecommendationOption option : recommendationOptions) {
+                    String sourceType = "long-recommend";  // 기본값은 "long-recommend"
+
+                    // 데이터가 FormattedTimeSlot 리스트인 경우
+                    if (option.getData() instanceof List) {
+                        List<FormattedTimeSlot> timeSlots = (List<FormattedTimeSlot>) option.getData();
+                        for (FormattedTimeSlot timeSlot : timeSlots) {
+                            // description이 "설문 기반 추천"인 경우만 "short-recommend"
+                            if ("설문 기반 추천".equalsIgnoreCase(timeSlot.getDescription().trim())) {
+                                sourceType = "short-recommend";  // description이 "설문 기반 추천"인 경우 "short-recommend"
+                            }
+                            timeSlot.setSourceType(sourceType);  // sourceType 설정
+                            shortRecommendations.add(timeSlot);
+                        }
+                    } else if (option.getData() instanceof FormattedTimeSlot) {
+                        FormattedTimeSlot timeSlot = (FormattedTimeSlot) option.getData();
+                        // description이 "설문 기반 추천"인 경우만 "short-recommend"
+                        if ("설문 기반 추천".equalsIgnoreCase(timeSlot.getDescription().trim())) {
+                            sourceType = "short-recommend";
+                        }
+                        timeSlot.setSourceType(sourceType);
+                        shortRecommendations.add(timeSlot);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.error("플라스크 서버에서 짧은 추천 데이터를 가져오는 데 실패했습니다.", e);
+        }
+
+        // 로그 추가: shortRecommendations의 상태 확인
+        System.out.println("Short Recommendations: " + shortRecommendations);
+        return shortRecommendations;
+    }
+
+
+
+
+
+
+
     // 5. 메인 서비스 메서드
     public List<RecommendationOption> getLongRecommendations(String email, LocalDate targetDate) {
         List<RecommendationOption> result = new ArrayList<>();
+
+        // 구글 캘린더 일정 가져오기
         List<FormattedTimeSlot> calendarEvents = getCalendarEventsForDate(email, targetDate);
+        // 빈 시간대 필터링 로직 추가
         List<FormattedTimeSlot> availableSlots = getAvailableSlots(calendarEvents, targetDate);
+
+        // 바쁜 시간대를 제외한 빈 시간대만 가져오기
+        availableSlots = availableSlots.stream()
+                .filter(slot -> {
+                    ZonedDateTime slotStart = ZonedDateTime.parse(slot.getStartTime());
+                    ZonedDateTime slotEnd = ZonedDateTime.parse(slot.getEndTime());
+
+                    // 캘린더 일정과 겹치지 않는 빈 시간만 필터링
+                    for (FormattedTimeSlot busyEvent : calendarEvents) {
+                        ZonedDateTime busyStart = ZonedDateTime.parse(busyEvent.getStartTime());
+                        ZonedDateTime busyEnd = ZonedDateTime.parse(busyEvent.getEndTime());
+                        if (!(slotEnd.isBefore(busyStart) || slotStart.isAfter(busyEnd))) {
+                            return false;  // 겹치는 경우 필터링
+                        }
+                    }
+                    return true; // 겹치지 않으면 남깁니다.
+                })
+                .collect(Collectors.toList());
+
+        // 오늘의 행사 목록 가져오기
         List<Event> todayEvents = getEventsForDate(targetDate);
 
-        List<RecommendationOption> eventOptions = pickTwoDifferentGenresWithDifferentSlots(todayEvents, availableSlots, targetDate);
-
-        result.add(new RecommendationOption("calendar", "추천X(캘린더)", calendarEvents, null, null));
-
-        for (RecommendationOption rec : eventOptions) {
-            @SuppressWarnings("unchecked")
-            List<FormattedTimeSlot> data = (List<FormattedTimeSlot>) rec.getData();
-            List<FormattedTimeSlot> combined = new ArrayList<>(calendarEvents);
-            combined.addAll(data);
-            result.add(new RecommendationOption("event", rec.getLabel(), combined, rec.getStartTime(), rec.getEndTime()));
+        // 캘린더 일정에 sourceType을 "calendar"로 설정
+        for (FormattedTimeSlot event : calendarEvents) {
+            if ("설문 기반 추천".equals(event.getDescription())) {
+                event.setSourceType("short-recommend");  // "설문 기반 추천"인 경우 "short-recommend"
+            } else {
+                event.setSourceType("calendar");  // 나머지 일정은 "calendar"
+            }
+            System.out.println("Event Title: " + event.getTitle() + ", SourceType: " + event.getSourceType());
         }
 
+        // 장르별 추천을 생성 (긴 추천)
+        List<RecommendationOption> eventOptions = pickTwoDifferentGenresWithDifferentSlots(todayEvents, availableSlots, targetDate);
+
+        for (RecommendationOption rec : eventOptions) {
+            List<FormattedTimeSlot> data = (List<FormattedTimeSlot>) rec.getData();
+
+            // 긴 추천에 "long-recommend" sourceType 설정
+            for (FormattedTimeSlot event : data) {
+                event.setSourceType("long-recommend");
+            }
+
+            // 긴 추천 항목을 결과에 추가
+            result.add(new RecommendationOption(
+                    "event",
+                    rec.getLabel(),  // 동적으로 설정된 label
+                    data,
+                    rec.getStartTime(),
+                    rec.getEndTime()
+            ));
+        }
+
+        // 짧은 추천을 결과에 추가
+        // 짧은 추천을 결과에 추가
+        List<FormattedTimeSlot> shortRecommendations = getShortRecommendations(targetDate, availableSlots);
+        for (FormattedTimeSlot shortEvent : shortRecommendations) {
+            if ("설문 기반 추천".equals(shortEvent.getDescription())) {
+                shortEvent.setSourceType("short-recommend");  // "설문 기반 추천"인 경우 "short-recommend"
+            } else {
+                shortEvent.setSourceType("calendar");
+            }
+
+            // 짧은 추천 항목을 결과에 추가
+            result.add(new RecommendationOption(
+                    "event",
+                    shortEvent.getDescription(),  // description은 "설문 기반 추천"
+                    Collections.singletonList(shortEvent), // 단일 이벤트이므로 리스트로 감싸서 전달
+                    shortEvent.getStartTime(),
+                    shortEvent.getEndTime()
+            ));
+
+            System.out.println("Short Recommendation Event: " + shortEvent.getTitle() + ", SourceType: " + shortEvent.getSourceType());
+        }
+
+        // 최종 추천 리스트 반환
+        System.out.println("Final Result: " + result);
         return result;
     }
+
+
+
+
+
+
+
 
 
 
@@ -103,12 +230,27 @@ public class LongService {
         System.out.println("calendar query timeMax = " + timeMax);
 
         try {
-            return googleCalendarService.getFormattedEvents(user, "primary", timeMin, timeMax);
+            List<FormattedTimeSlot> calendarEvents = googleCalendarService.getFormattedEvents(user, "primary", timeMin, timeMax);
+
+            // 캘린더 일정이 없다면, 빈 일정 타입을 "calendar"로 반환
+            if (calendarEvents.isEmpty()) {
+                FormattedTimeSlot emptyEvent = new FormattedTimeSlot(
+                        "추천X(캘린더)",
+                        "일정 없음",
+                        timeMin,
+                        timeMax,
+                        "calendar" // 빈 일정에 "calendar" 타입을 설정
+                );
+                calendarEvents.add(emptyEvent);
+            }
+
+            return calendarEvents;
         } catch (Exception e) {
             e.printStackTrace();
             return new ArrayList<>();
         }
     }
+
 
 
     // 오늘의 빈 시간(1시간 이상) 구하기 (FormattedTimeSlot 리스트)
@@ -145,7 +287,8 @@ public class LongService {
                         "추천 가능 시간",
                         "캘린더 빈 시간",
                         slotStart.atZone(zone).toString(),
-                        slotEnd.atZone(zone).toString()
+                        slotEnd.atZone(zone).toString(),
+                        "long-recommend"
                 ));
                 prevEnd = prevEnd.plusHours(1);
             }
@@ -160,7 +303,8 @@ public class LongService {
                     "추천 가능 시간",
                     "캘린더 빈 시간",
                     slotStart.atZone(zone).toString(),
-                    slotEnd.atZone(zone).toString()
+                    slotEnd.atZone(zone).toString(),
+                    "long-recommend"
             ));
             prevEnd = prevEnd.plusHours(1);
         }
@@ -269,7 +413,8 @@ public class LongService {
                     event.getTitle(),
                     event.getPlace(),
                     formattedStart,
-                    formattedEnd
+                    formattedEnd,
+                    "long-recommend"
             );
 
             options.add(new RecommendationOption(
@@ -278,6 +423,7 @@ public class LongService {
                     Collections.singletonList(eventSlot),
                     formattedStart,
                     formattedEnd
+
             ));
 
             count++;
@@ -340,7 +486,8 @@ public class LongService {
                     event.getTitle(),
                     event.getPlace(),
                     formattedStart,
-                    formattedEnd
+                    formattedEnd,
+                    "long-recommend"
             );
 
             options.add(new RecommendationOption(
@@ -349,6 +496,7 @@ public class LongService {
                     Collections.singletonList(eventSlot),
                     formattedStart,
                     formattedEnd
+
             ));
 
             i++; // 슬롯 인덱스는 무조건 2번만 돈다
@@ -489,7 +637,8 @@ public class LongService {
                             "추천 가능 시간",
                             "전체 자유시간",
                             start.toString(),
-                            end.toString()
+                            end.toString(),
+                            "long-recommend"
                     ));
                 }
             }
@@ -523,7 +672,8 @@ public class LongService {
                     "기본 추천 시간",
                     "기본",
                     start.toString(),
-                    end.toString()
+                    end.toString(),
+                    "calendar"
             );
             filteredSlots = List.of(fallbackSlot);
         }
@@ -535,11 +685,12 @@ public class LongService {
 
         // 캘린더만
         scenarios.add(new RecommendationOption(
-                "calendar",
-                "추천X(캘린더)",
-                new ArrayList<>(calendarEvents),
-                null,
-                null
+                "calendar",                      // 타입
+                "추천X(캘린더)",                  // 레이블
+                new ArrayList<>(calendarEvents),  // 데이터
+                "",                              // startTime (빈 문자열)
+                ""                            // endTime (빈 문자열)
+                                  // sourceType
         ));
 
         FormattedTimeSlot slot = filteredSlots.get(0);  // 하나의 빈 시간 슬롯 사용
@@ -561,7 +712,8 @@ public class LongService {
                     recommends.get(i).getTitle(),
                     recommends.get(i).getDescription(),
                     formattedStart,
-                    formattedEnd
+                    formattedEnd,
+                    "long-recommend"
             );
 
             List<FormattedTimeSlot> combined = new ArrayList<>(calendarEvents);
@@ -573,6 +725,7 @@ public class LongService {
                     combined,
                     formattedStart,
                     formattedEnd
+
             ));
         }
 

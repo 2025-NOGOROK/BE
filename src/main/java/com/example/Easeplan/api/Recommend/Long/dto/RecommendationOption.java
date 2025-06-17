@@ -15,5 +15,6 @@ public class RecommendationOption {
     private Object data;        // FormattedTimeSlot, CalendarEvent 등
     private String startTime;   // ISO-8601, 통일!
     private String endTime;     // ISO-8601, 통일!
+
 }
 
