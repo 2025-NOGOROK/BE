@@ -219,12 +219,10 @@ public class GoogleCalendarService {
     public String getGoogleAccessTokenFromJwt(String jwtToken) {
         try {
             // JWT 토큰에서 이메일을 추출
-            String email = oAuthService.getEmailFromGoogleToken(jwtToken); // 이 메서드를 oAuthService에 맞게 수정
-
+            String email = oAuthService.getGoogleUserEmailFromJwt(jwtToken); // 기존의 getGoogleUserEmailFromJwt 메서드를 사용
             // User 객체 가져오기
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
-
             // Google OAuth 액세스 토큰 반환
             return user.getGoogleAccessToken();
         } catch (Exception e) {
@@ -232,6 +230,7 @@ public class GoogleCalendarService {
             return null;
         }
     }
+
 
 
 }
