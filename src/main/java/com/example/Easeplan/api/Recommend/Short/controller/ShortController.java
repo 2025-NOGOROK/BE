@@ -52,21 +52,38 @@ public class ShortController {
         try {
             if (userDetails == null) return ResponseEntity.status(401).build();
 
+            // Get the user based on email
             User user = userRepository.findByEmail(userDetails.getUsername())
                     .orElseThrow(() -> new RuntimeException("유저를 찾을 수 없음"));
 
+            // Get the user's survey details
             UserSurvey survey = surveyService.getSurveyByUser(user);
             UserSurveyRequest request = UserSurveyRequest.fromEntity(survey);
 
+            // Get the start and end of the day in ZonedDateTime format
             ZonedDateTime startOfDay = LocalDate.parse(date).atStartOfDay(ZoneId.of("Asia/Seoul"));
             ZonedDateTime endOfDay = startOfDay.plusDays(1).minusSeconds(1);
 
+            // Get events from Google Calendar for the user
             List<FormattedTimeSlot> events = calendarService.getFormattedEvents(
                     user, "primary",
                     startOfDay.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME),
                     endOfDay.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME)
             );
 
+            // No need to call setSourceType, sourceType is set during construction
+            List<FormattedTimeSlot> allEvents = new ArrayList<>();
+            for (FormattedTimeSlot event : events) {
+                allEvents.add(new FormattedTimeSlot(
+                        event.getTitle(),
+                        event.getDescription(),
+                        event.getStartDateTime(),
+                        event.getEndDateTime(),
+                        "calendar"
+                ));
+            }
+
+            // Get free time slots
             List<TimeSlot> freeSlots = calendarService.getFreeTimeSlots(user, LocalDate.parse(date));
             List<TimeSlot> filteredSlots = freeSlots.stream()
                     .filter(slot -> {
@@ -75,6 +92,7 @@ public class ShortController {
                         return startKST.toLocalTime().isAfter(LocalTime.of(5, 59));
                     }).collect(Collectors.toList());
 
+            // If no free slots are found, add a fallback slot
             if (filteredSlots.isEmpty()) {
                 ZonedDateTime fallbackStart = LocalDate.parse(date).atTime(10, 0).atZone(ZoneId.of("Asia/Seoul"));
                 ZonedDateTime fallbackEnd = fallbackStart.plusMinutes(60);
@@ -84,26 +102,32 @@ public class ShortController {
                 ));
             }
 
+            // Get recommendations from Flask server
             List<String> recommendations = flaskService.getRecommendations(request);
             List<FormattedTimeSlot> recommendEvents = new ArrayList<>();
 
+            // Combine filtered slots with the recommendations
             for (int i = 0; i < recommendations.size() && i < filteredSlots.size(); i++) {
                 TimeSlot slot = filteredSlots.get(i);
                 String title = recommendations.get(i);
 
+                // Parse the duration from the title, default to 60 minutes
                 int durationMinutes = 60;
                 Matcher matcher = Pattern.compile("\\((\\d+)분\\)").matcher(title);
                 if (matcher.find()) durationMinutes = Integer.parseInt(matcher.group(1));
 
+                // Create a FormattedTimeSlot for each recommended event
                 DateTime start = slot.getStart();
                 DateTime end = new DateTime(start.getValue() + durationMinutes * 60 * 1000);
 
                 FormattedTimeSlot event = new FormattedTimeSlot(
                         title, "설문 기반 추천",
                         start.toStringRfc3339(),
-                        end.toStringRfc3339()
+                        end.toStringRfc3339(),
+                        "short-recommend"  // Set sourceType as "short-recommend"
                 );
 
+                // Add event to Google Calendar
                 calendarService.addEvent(
                         user, "primary",
                         event.getTitle(),
@@ -113,12 +137,15 @@ public class ShortController {
                         false, 0, false, false
                 );
 
+                // Add event to the list of recommended events
                 recommendEvents.add(event);
             }
 
-            List<FormattedTimeSlot> all = new ArrayList<>(events);
-            all.addAll(recommendEvents);
-            return ResponseEntity.ok(all);
+            // Combine the calendar events and recommended events
+            allEvents.addAll(recommendEvents);
+
+            // Return the combined list of events
+            return ResponseEntity.ok(allEvents);
 
         } catch (Exception e) {
             e.printStackTrace();
