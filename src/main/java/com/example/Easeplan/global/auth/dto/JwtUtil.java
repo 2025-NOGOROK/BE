@@ -10,9 +10,12 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestTemplate;
 
 import javax.crypto.SecretKey;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Map;
 
@@ -122,6 +125,7 @@ public class JwtUtil {
     // Google Access Token 정보 검증 (tokeninfo 사용)
     public boolean isValidGoogleAccessToken(String accessToken) {
         try {
+            // Google OAuth Tokeninfo API를 사용하여 토큰 정보 검증
             String url = "https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=" + accessToken;
             HttpHeaders headers = new HttpHeaders();
             HttpEntity<String> entity = new HttpEntity<>(headers);
@@ -129,10 +133,61 @@ public class JwtUtil {
             ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.GET, entity, String.class);
 
             // 응답이 정상이라면 유효한 토큰으로 판단
-            return response.getStatusCode() == HttpStatus.OK;
+            if (response.getStatusCode() == HttpStatus.OK) {
+                log.debug("Google Access Token is valid.");
+                return true;
+            } else {
+                log.warn("Google Access Token is invalid.");
+                return false;
+            }
         } catch (Exception e) {
-            log.error("구글 액세스 토큰 검증 실패", e);
+            log.error("Google Access Token validation failed", e);
             return false;
+        }
+    }
+
+    public boolean isGoogleAccessTokenExpired(User user) {
+        // google_access_token_expires_at이 유효한지 확인
+        if (user.getGoogleAccessTokenExpiresAt() != null) {
+            LocalDateTime expirationDate = user.getGoogleAccessTokenExpiresAt();
+            // 현재 시간과 비교
+            return expirationDate.isBefore(LocalDateTime.now());
+        }
+        return true; // 만약 만료시간이 없다면 만료된 것으로 간주
+    }
+
+    // 토큰 만료 시 갱신 로직
+    public String refreshGoogleAccessToken(User user) {
+        // 구글 리프레시 토큰으로 새로운 액세스 토큰 발급 받기
+        try {
+            String url = "https://oauth2.googleapis.com/token";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
+            MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+            params.add("client_id", "YOUR_GOOGLE_CLIENT_ID");
+            params.add("client_secret", "YOUR_GOOGLE_CLIENT_SECRET");
+            params.add("refresh_token", user.getGoogleRefreshToken());
+            params.add("grant_type", "refresh_token");
+
+            HttpEntity<MultiValueMap<String, String>> entity = new HttpEntity<>(params, headers);
+            RestTemplate restTemplate = new RestTemplate();
+            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, entity, Map.class);
+
+            if (response.getStatusCode() == HttpStatus.OK) {
+                Map<String, String> responseBody = response.getBody();
+                String newAccessToken = responseBody.get("access_token");
+                String newRefreshToken = responseBody.get("refresh_token");
+
+                // 새 액세스 토큰과 리프레시 토큰 저장
+                user.updateGoogleTokens(newAccessToken, newRefreshToken, LocalDateTime.now().plusHours(1), "new-jwt-token");
+                return newAccessToken;
+            } else {
+                log.error("Failed to refresh Google Access Token.");
+                return null;
+            }
+        } catch (Exception e) {
+            log.error("Error refreshing Google Access Token", e);
+            return null;
         }
     }
 
