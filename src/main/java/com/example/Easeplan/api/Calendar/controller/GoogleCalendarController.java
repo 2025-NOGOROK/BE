@@ -64,7 +64,12 @@ public class GoogleCalendarController {
     private JwtUtil jwtUtil;
     private final JwtUtil jwtProvider;
 
-    public GoogleCalendarController(GoogleOAuthService oAuthService, GoogleCalendarService calendarService, NotificationScheduler notificationScheduler, UserRepository userRepository, JwtUtil jwtProvider) {
+    public GoogleCalendarController(
+            GoogleOAuthService oAuthService,
+            GoogleCalendarService calendarService,
+            NotificationScheduler notificationScheduler,
+            UserRepository userRepository,
+            JwtUtil jwtProvider) {
         this.oAuthService = oAuthService;
         this.calendarService = calendarService;
         this.notificationScheduler = notificationScheduler;
@@ -242,26 +247,26 @@ public class GoogleCalendarController {
 
 
 
-    @Operation(summary = "Google access_token 갱신", description = """
-        사용자의 Google refresh_token을 사용하여 새로운 access_token을 갱신합니다.
-        """)
-    @PostMapping("/refresh-access-token")
-    public ResponseEntity<?> refreshAccessToken(@AuthenticationPrincipal UserDetails userDetails) {
-        try {
-            User user = userRepository.findByEmail(userDetails.getUsername())
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-
-            String newAccessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
-
-            return ResponseEntity.ok(Map.of(
-                    "access_token", newAccessToken,
-                    "expires_at", user.getGoogleAccessTokenExpiresAt()
-            ));
-        } catch (Exception e) {
-            log.error("Google access_token 갱신 실패", e);
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Google access_token 갱신 실패: 재로그인 필요");
-        }
-    }
+//    @Operation(summary = "Google access_token 갱신", description = """
+//        사용자의 Google refresh_token을 사용하여 새로운 access_token을 갱신합니다.
+//        """)
+//    @PostMapping("/refresh-access-token")
+//    public ResponseEntity<?> refreshAccessToken(@AuthenticationPrincipal UserDetails userDetails) {
+//        try {
+//            User user = userRepository.findByEmail(userDetails.getUsername())
+//                    .orElseThrow(() -> new RuntimeException("User not found"));
+//
+//            String newAccessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
+//
+//            return ResponseEntity.ok(Map.of(
+//                    "access_token", newAccessToken,
+//                    "expires_at", user.getGoogleAccessTokenExpiresAt()
+//            ));
+//        } catch (Exception e) {
+//            log.error("Google access_token 갱신 실패", e);
+//            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Google access_token 갱신 실패: 재로그인 필요");
+//        }
+//    }
 
 
 
@@ -307,16 +312,13 @@ public class GoogleCalendarController {
         String jwtToken = jwtUtil.cleanBearer(authorizationHeader);  // Bearer " " 제거 후 JWT 얻기
 
         // JWT 토큰에서 이메일을 추출하여 User 객체를 가져옴
-        String email = jwtUtil.getEmailFromToken(jwtToken);  // JWT에서 이메일을 추출
+        String email = oAuthService.getGoogleUserEmailFromJwt(jwtToken);  // JWT에서 이메일을 추출
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         // 구글 캘린더 이벤트 조회
-        return googleCalendarService.getFormattedEvents(user, calendarId, timeMin, timeMax);
+        return calendarService.getFormattedEvents(user, calendarId, timeMin, timeMax);
     }
-
-
-
 
 
     @Operation(
