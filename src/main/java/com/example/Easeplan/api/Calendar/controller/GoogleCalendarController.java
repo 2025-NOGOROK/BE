@@ -292,12 +292,14 @@ public class GoogleCalendarController {
             "startDateTime": "2025-05-10T10:00:00+09:00",
             "endDateTime": "2025-05-10T11:00:00+09:00",
             "description": "주간 회의"
+            "sourceType" : "calendar"
           }
         ]
         ```
         <br>
         **참고**<br>
         - timeMin, timeMax의 +는 반드시 %2B로 인코딩해야 합니다.
+        - sourceType은 "calendar", "short-recommend", "long-recommend" 3가지
         """
     )
 
