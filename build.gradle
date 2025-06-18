@@ -81,7 +81,9 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	systemProperty "spring.profiles.active", "test" // ⬅️ 테스트 시 'test' 프로파일로 실행
 }
+
 
 // JAR 파일명 고정
 bootJar {
