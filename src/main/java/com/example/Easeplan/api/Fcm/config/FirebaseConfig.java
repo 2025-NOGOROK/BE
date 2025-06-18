@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ClassPathResource;
 import javax.annotation.PostConstruct;
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -19,21 +20,16 @@ public class FirebaseConfig {
 
     @PostConstruct
     public void init() throws IOException {
-        ClassPathResource resource = new ClassPathResource(keyPath);
-
-        if (!resource.exists()) {
-            throw new FileNotFoundException("파일 없음: " + keyPath);
-        }
-
-        try (InputStream serviceAccount = resource.getInputStream()) {
+        try (InputStream serviceAccount = new FileInputStream(keyPath)) {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
 
-            // 🔥 명시적 앱 이름 지정 + 중복 초기화 방지
             if (FirebaseApp.getApps().stream().noneMatch(app -> app.getName().equals("easeplan"))) {
                 FirebaseApp.initializeApp(options, "easeplan");
             }
+        } catch (IOException e) {
+            throw new RuntimeException("Firebase 서비스 계정 키 로딩 실패: " + keyPath, e);
         }
     }
 }
