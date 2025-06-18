@@ -5,11 +5,9 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
+
 import javax.annotation.PostConstruct;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
 import java.io.InputStream;
 
 @Configuration
@@ -19,7 +17,14 @@ public class FirebaseConfig {
     private String keyPath;
 
     @PostConstruct
-    public void init() throws IOException {
+    public void init() {
+        // ✅ 테스트 환경이면 Firebase 초기화 생략
+        String activeProfile = System.getProperty("spring.profiles.active", "");
+        if (activeProfile.contains("test") || isTestEnvironment()) {
+            System.out.println("[FirebaseConfig] 테스트 환경이므로 Firebase 초기화를 생략합니다.");
+            return;
+        }
+
         try (InputStream serviceAccount = new FileInputStream(keyPath)) {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
@@ -28,9 +33,13 @@ public class FirebaseConfig {
             if (FirebaseApp.getApps().stream().noneMatch(app -> app.getName().equals("easeplan"))) {
                 FirebaseApp.initializeApp(options, "easeplan");
             }
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new RuntimeException("Firebase 서비스 계정 키 로딩 실패: " + keyPath, e);
         }
     }
-}
 
+    private boolean isTestEnvironment() {
+        // JUnit 환경이면 테스트로 간주
+        return Thread.currentThread().getStackTrace().toString().contains("org.junit");
+    }
+}
