@@ -2,6 +2,7 @@ package com.example.Easeplan.api.Fcm.service;
 
 import com.example.Easeplan.api.Fcm.domain.ScheduledNotification;
 import com.example.Easeplan.api.Fcm.repository.ScheduledNotificationRepository;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -24,7 +25,7 @@ public class NotificationScheduler {
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
     public NotificationScheduler(
-            TaskScheduler taskScheduler,
+            @Qualifier("taskScheduler") TaskScheduler taskScheduler,
             FcmService fcmService,
             ScheduledNotificationRepository repository
     ) {
