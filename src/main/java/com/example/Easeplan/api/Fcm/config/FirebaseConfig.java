@@ -5,12 +5,14 @@ import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Profile; // ⬅️ 추가
 
 import javax.annotation.PostConstruct;
 import java.io.FileInputStream;
 import java.io.InputStream;
 
 @Configuration
+@Profile("!test") // ⬅️ 테스트 환경에서는 이 설정 파일 자체를 무시!
 public class FirebaseConfig {
 
     @Value("${firebase.key-path}")
@@ -18,13 +20,6 @@ public class FirebaseConfig {
 
     @PostConstruct
     public void init() {
-        // ✅ 테스트 환경이면 Firebase 초기화 생략
-        String activeProfile = System.getProperty("spring.profiles.active", "");
-        if (activeProfile.contains("test") || isTestEnvironment()) {
-            System.out.println("[FirebaseConfig] 테스트 환경이므로 Firebase 초기화를 생략합니다.");
-            return;
-        }
-
         try (InputStream serviceAccount = new FileInputStream(keyPath)) {
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
@@ -36,10 +31,5 @@ public class FirebaseConfig {
         } catch (Exception e) {
             throw new RuntimeException("Firebase 서비스 계정 키 로딩 실패: " + keyPath, e);
         }
-    }
-
-    private boolean isTestEnvironment() {
-        // JUnit 환경이면 테스트로 간주
-        return Thread.currentThread().getStackTrace().toString().contains("org.junit");
     }
 }
