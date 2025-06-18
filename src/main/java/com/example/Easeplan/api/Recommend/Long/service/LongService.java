@@ -156,48 +156,64 @@ public class LongService {
             System.out.println("Event Title: " + event.getTitle() + ", SourceType: " + event.getSourceType());
         }
 
+        if (!calendarEvents.isEmpty()) {
+            result.add(new RecommendationOption(
+                    "calendar",
+                    "추천X(캘린더)",
+                    calendarEvents,
+                    "",  // startTime
+                    ""   // endTime
+            ));
+        }
+
         // 장르별 추천을 생성 (긴 추천)
         List<RecommendationOption> eventOptions = pickTwoDifferentGenresWithDifferentSlots(todayEvents, availableSlots, targetDate);
 
         for (RecommendationOption rec : eventOptions) {
-            List<FormattedTimeSlot> data = (List<FormattedTimeSlot>) rec.getData();
+            List<FormattedTimeSlot> recommended = (List<FormattedTimeSlot>) rec.getData();
 
-            // 긴 추천에 "long-recommend" sourceType 설정
-            for (FormattedTimeSlot event : data) {
-                event.setSourceType("long-recommend");
+            for (FormattedTimeSlot r : recommended) {
+                r.setSourceType("long-recommend");
             }
 
-            // 긴 추천 항목을 결과에 추가
+            // 👇 이 부분만 바꿔줍니다 (calendarEvent 전체 복사)
+            List<FormattedTimeSlot> combined = new ArrayList<>();
+            combined.addAll(calendarEvents); // 겹치는 거 상관 없이 전부 포함
+            combined.addAll(recommended);
+
             result.add(new RecommendationOption(
                     "event",
-                    rec.getLabel(),  // 동적으로 설정된 label
-                    data,
+                    rec.getLabel(),
+                    combined,
                     rec.getStartTime(),
                     rec.getEndTime()
             ));
         }
 
+
+
+
         // 짧은 추천을 결과에 추가
         // 짧은 추천을 결과에 추가
         List<FormattedTimeSlot> shortRecommendations = getShortRecommendations(targetDate, availableSlots);
         for (FormattedTimeSlot shortEvent : shortRecommendations) {
-            if ("설문 기반 추천".equals(shortEvent.getDescription())) {
-                shortEvent.setSourceType("short-recommend");  // "설문 기반 추천"인 경우 "short-recommend"
-            } else {
-                shortEvent.setSourceType("calendar");
-            }
+            shortEvent.setSourceType("short-recommend");
 
-            // 짧은 추천 항목을 결과에 추가
+            List<FormattedTimeSlot> combined = new ArrayList<>();
+            combined.addAll(calendarEvents); // 그냥 다 포함
+            combined.add(shortEvent);
+
             result.add(new RecommendationOption(
                     "event",
-                    shortEvent.getDescription(),  // description은 "설문 기반 추천"
-                    Collections.singletonList(shortEvent), // 단일 이벤트이므로 리스트로 감싸서 전달
+                    shortEvent.getDescription(),
+                    combined,
                     shortEvent.getStartTime(),
                     shortEvent.getEndTime()
             ));
-
-            System.out.println("Short Recommendation Event: " + shortEvent.getTitle() + ", SourceType: " + shortEvent.getSourceType());
         }
+
+
+
 
         // 최종 추천 리스트 반환
         System.out.println("Final Result: " + result);
