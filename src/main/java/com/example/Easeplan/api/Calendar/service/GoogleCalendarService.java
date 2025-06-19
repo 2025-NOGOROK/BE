@@ -108,6 +108,8 @@ public class GoogleCalendarService {
                 sourceType = "short-recommend";
             } else if (props != null && "long-recommend".equals(props.get("sourceType"))) {
                 sourceType = "long-recommend"; // ✅ 이 조건에서 잡힘
+            }else {
+                sourceType = "calendar"; // 🔚 나머지는 모두 calendar
             }
 
             // FormattedTimeSlot 생성 시 sourceType 설정
