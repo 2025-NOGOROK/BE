@@ -369,7 +369,8 @@ public class GoogleCalendarController {
                 req.serverAlarm,
                 req.minutesBeforeAlarm,
                 req.fixed,
-                req.userLabel
+                req.userLabel,
+                null
         );
 
         // FCM 알림 스케줄링 로직 (기존 코드 유지)
