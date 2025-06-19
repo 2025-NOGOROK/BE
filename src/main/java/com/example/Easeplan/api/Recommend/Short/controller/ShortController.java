@@ -33,6 +33,8 @@ public class ShortController {
     private final GoogleCalendarService calendarService;
     private final FlaskRecommendService flaskService;
 
+    private final Map<String, Set<String>> recommendationHistoryMap = new HashMap<>();
+
     @Autowired
     public ShortController(UserRepository userRepository,
                            UserSurveyService surveyService,
@@ -93,8 +95,10 @@ public class ShortController {
                     }).collect(Collectors.toList());
 
             // If no free slots are found, add a fallback slot
-            if (filteredSlots.isEmpty()) {
-                ZonedDateTime fallbackStart = LocalDate.parse(date).atTime(10, 0).atZone(ZoneId.of("Asia/Seoul"));
+            while (filteredSlots.size() < 2) {
+                ZonedDateTime fallbackStart = LocalDate.parse(date)
+                        .atTime(10 + filteredSlots.size(), 0)
+                        .atZone(ZoneId.of("Asia/Seoul"));
                 ZonedDateTime fallbackEnd = fallbackStart.plusMinutes(60);
                 filteredSlots.add(new TimeSlot(
                         new DateTime(fallbackStart.toInstant().toEpochMilli()),
@@ -103,13 +107,26 @@ public class ShortController {
             }
 
             // Get recommendations from Flask server
+            // 추천 받아오기 + 중복 제거
             List<String> recommendations = flaskService.getRecommendations(request);
+            Collections.shuffle(recommendations); // 순서 섞기
+
+            String userEmail = user.getEmail();  // user.getId() 대신 email 기준
+            Set<String> history = recommendationHistoryMap.getOrDefault(userEmail, new HashSet<>());
+
+            List<String> filteredRecommendations = recommendations.stream()
+                    .filter(r -> !history.contains(r))
+                    .limit(3) // 최대 2개만
+                    .collect(Collectors.toList());
+
             List<FormattedTimeSlot> recommendEvents = new ArrayList<>();
 
+            int count = Math.min(2, Math.min(filteredRecommendations.size(), filteredSlots.size()));
+
             // Combine filtered slots with the recommendations
-            for (int i = 0; i < recommendations.size() && i < filteredSlots.size(); i++) {
-                TimeSlot slot = filteredSlots.get(i);
-                String title = recommendations.get(i);
+            for (int i = 0; i < count; i++) {
+                TimeSlot slot = filteredSlots.get(i);  // 겹치지 않도록 슬롯 순서대로
+                String title = filteredRecommendations.get(i);
 
                 // Parse the duration from the title, default to 60 minutes
                 int durationMinutes = 60;
@@ -139,7 +156,10 @@ public class ShortController {
 
                 // Add event to the list of recommended events
                 recommendEvents.add(event);
+                history.add(title); // 중복 방지용 저장
             }
+
+            recommendationHistoryMap.put(userEmail, history); // 히스토리 저장
 
             // Combine the calendar events and recommended events
             allEvents.addAll(recommendEvents);
