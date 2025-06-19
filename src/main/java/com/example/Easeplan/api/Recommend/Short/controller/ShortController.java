@@ -151,7 +151,7 @@ public class ShortController {
                         event.getDescription(),
                         start.toStringRfc3339(),
                         end.toStringRfc3339(),
-                        false, 0, false, false
+                        false, 0, false, false, null
                 );
 
                 // Add event to the list of recommended events
