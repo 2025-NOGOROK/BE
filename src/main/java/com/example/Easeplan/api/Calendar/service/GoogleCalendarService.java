@@ -63,25 +63,7 @@ public class GoogleCalendarService {
     }
 
 
-//    public Calendar getCalendarService(User user) throws Exception {
-//        String accessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
-//        String refreshToken = user.getGoogleRefreshToken();
-//
-//        UserCredentials userCredentials = UserCredentials.newBuilder()
-//                .setClientId(googleOAuthProperties.getWebClientId())
-//                .setClientSecret(googleOAuthProperties.getClientSecret())
-//                .setRefreshToken(refreshToken)
-//                .setAccessToken(new AccessToken(accessToken, null))
-//                .build();
-//
-//        HttpCredentialsAdapter requestInitializer = new HttpCredentialsAdapter(userCredentials);
-//
-//        return new Calendar.Builder(
-//                GoogleNetHttpTransport.newTrustedTransport(),
-//                GsonFactory.getDefaultInstance(),
-//                requestInitializer
-//        ).setApplicationName("Easeplan").build();
-//    }
+
 
     public Events getEvents(User user, String calendarId, String timeMinStr, String timeMaxStr) throws Exception {
         Calendar service = getCalendarService(user);
@@ -116,9 +98,16 @@ public class GoogleCalendarService {
                     : null;
 
             // sourceType을 동적으로 설정
-            String sourceType = "calendar"; // 기본값은 "calendar"
+            String sourceType = "calendar"; // 기본값
+
+            Map<String, String> props = event.getExtendedProperties() != null
+                    ? event.getExtendedProperties().getPrivate()
+                    : null;
+
             if ("설문 기반 추천".equals(description)) {
-                sourceType = "short-recommend"; // description이 "설문 기반 추천"인 경우 "short-recommend"
+                sourceType = "short-recommend";
+            } else if (props != null && "long-recommend".equals(props.get("sourceType"))) {
+                sourceType = "long-recommend"; // ✅ 이 조건에서 잡힘
             }
 
             // FormattedTimeSlot 생성 시 sourceType 설정
@@ -222,6 +211,7 @@ public class GoogleCalendarService {
                 .setEnd(new EventDateTime().setDateTime(new DateTime(endDateTime)).setTimeZone("Asia/Seoul"));
 
         Map<String, String> customProps = new HashMap<>();
+        customProps.put("sourceType", "long-recommend"); // ✅ 이 줄 추가
         customProps.put("serverAlarm", String.valueOf(serverAlarm));
         customProps.put("minutesBeforeAlarm", String.valueOf(minutesBeforeAlarm));
         customProps.put("fixed", String.valueOf(fixed));
