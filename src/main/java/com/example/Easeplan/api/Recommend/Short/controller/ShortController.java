@@ -123,9 +123,13 @@ public class ShortController {
 
             int count = Math.min(2, Math.min(filteredRecommendations.size(), filteredSlots.size()));
 
+
+            // ✅ 2시간 간격 기준 시작 시간 설정
+            ZonedDateTime baseStart = Instant.ofEpochMilli(filteredSlots.get(0).getStart().getValue())
+                    .atZone(ZoneId.of("Asia/Seoul"));
+
             // Combine filtered slots with the recommendations
             for (int i = 0; i < count; i++) {
-                TimeSlot slot = filteredSlots.get(i);  // 겹치지 않도록 슬롯 순서대로
                 String title = filteredRecommendations.get(i);
 
                 // Parse the duration from the title, default to 60 minutes
@@ -133,9 +137,12 @@ public class ShortController {
                 Matcher matcher = Pattern.compile("\\((\\d+)분\\)").matcher(title);
                 if (matcher.find()) durationMinutes = Integer.parseInt(matcher.group(1));
 
+                ZonedDateTime startZoned = baseStart.plusHours(i * 2); // 2시간 간격
+                ZonedDateTime endZoned = startZoned.plusMinutes(durationMinutes);
+
                 // Create a FormattedTimeSlot for each recommended event
-                DateTime start = slot.getStart();
-                DateTime end = new DateTime(start.getValue() + durationMinutes * 60 * 1000);
+                DateTime start = new DateTime(startZoned.toInstant().toEpochMilli());
+                DateTime end = new DateTime(endZoned.toInstant().toEpochMilli());
 
                 FormattedTimeSlot event = new FormattedTimeSlot(
                         title, "설문 기반 추천",
