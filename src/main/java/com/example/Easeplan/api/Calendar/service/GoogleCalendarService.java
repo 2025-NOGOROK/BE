@@ -201,7 +201,7 @@ public class GoogleCalendarService {
     }
 
 
-    public Event addEvent(User user, String calendarId, String title, String description, String startDateTime, String endDateTime, boolean serverAlarm, int minutesBeforeAlarm, boolean fixed, boolean userLabel) throws Exception {
+    public Event addEvent(User user, String calendarId, String title, String description, String startDateTime, String endDateTime, boolean serverAlarm, int minutesBeforeAlarm, boolean fixed, boolean userLabel, String sourceType ) throws Exception {
         Calendar service = getCalendarService(user);
 
         Event event = new Event()
@@ -211,7 +211,10 @@ public class GoogleCalendarService {
                 .setEnd(new EventDateTime().setDateTime(new DateTime(endDateTime)).setTimeZone("Asia/Seoul"));
 
         Map<String, String> customProps = new HashMap<>();
-        customProps.put("sourceType", "long-recommend"); // ✅ 이 줄 추가
+        // ✅ 자동 추천만 sourceType 저장
+        if (sourceType != null && !sourceType.equals("calendar")) {
+            customProps.put("sourceType", sourceType);
+        }
         customProps.put("serverAlarm", String.valueOf(serverAlarm));
         customProps.put("minutesBeforeAlarm", String.valueOf(minutesBeforeAlarm));
         customProps.put("fixed", String.valueOf(fixed));
