@@ -575,7 +575,8 @@ public class LongService {
                         false,  // serverAlarm
                         0,      // minutesBeforeAlarm
                         false,  // fixed
-                        false   // userLabel
+                        false,   // userLabel
+                         null
                 );
             } catch (Exception e) {
                 throw new RuntimeException("구글 캘린더 저장 실패: " + e.getMessage(), e);
