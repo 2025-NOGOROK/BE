@@ -576,7 +576,7 @@ public class LongService {
                         0,      // minutesBeforeAlarm
                         false,  // fixed
                         false,   // userLabel
-                         null
+                        "long-recommend"
                 );
             } catch (Exception e) {
                 throw new RuntimeException("구글 캘린더 저장 실패: " + e.getMessage(), e);
