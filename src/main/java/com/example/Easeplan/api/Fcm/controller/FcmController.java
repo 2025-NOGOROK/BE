@@ -107,4 +107,17 @@ public class FcmController {
     }
     // 예약 알림 요청 DTO
 
+
+    @GetMapping("/test-send")
+    public ResponseEntity<?> testSend(@AuthenticationPrincipal UserDetails userDetails,@RequestParam String token) {
+        try {
+            String response = fcmService.sendMessage(token, "백엔드 테스트", "서버에서 FCM 보내기 성공!");
+            return ResponseEntity.ok("FCM 전송 성공: " + response);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(500).body("FCM 전송 실패: " + e.getMessage());
+        }
+    }
+
+
 }
