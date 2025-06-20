@@ -120,75 +120,100 @@ public class LongService {
     public List<RecommendationOption> getLongRecommendations(String email, LocalDate targetDate) {
         List<RecommendationOption> result = new ArrayList<>();
 
-        // 구글 캘린더 일정 가져오기
+        // 1. 구글 캘린더 일정 가져오기
         List<FormattedTimeSlot> calendarEvents = getCalendarEventsForDate(email, targetDate);
-        // 빈 시간대 필터링 로직 추가
-        List<FormattedTimeSlot> availableSlots = getAvailableSlots(calendarEvents, targetDate);
 
-        // 바쁜 시간대를 제외한 빈 시간대만 가져오기
+        // 2. 빈 시간대 계산
+        List<FormattedTimeSlot> availableSlots = getAvailableSlots(calendarEvents, targetDate);
         availableSlots = availableSlots.stream()
                 .filter(slot -> {
                     ZonedDateTime slotStart = ZonedDateTime.parse(slot.getStartTime());
                     ZonedDateTime slotEnd = ZonedDateTime.parse(slot.getEndTime());
 
-                    // 캘린더 일정과 겹치지 않는 빈 시간만 필터링
                     for (FormattedTimeSlot busyEvent : calendarEvents) {
                         ZonedDateTime busyStart = ZonedDateTime.parse(busyEvent.getStartTime());
                         ZonedDateTime busyEnd = ZonedDateTime.parse(busyEvent.getEndTime());
                         if (!(slotEnd.isBefore(busyStart) || slotStart.isAfter(busyEnd))) {
-                            return false;  // 겹치는 경우 필터링
+                            return false;
                         }
                     }
-                    return true; // 겹치지 않으면 남깁니다.
+                    return true;
                 })
                 .collect(Collectors.toList());
 
-        // 오늘의 행사 목록 가져오기
+        // 3. 오늘의 행사 목록
         List<Event> todayEvents = getEventsForDate(targetDate);
 
-        // 캘린더 일정에 sourceType을 "calendar"로 설정
+        // 4. sourceType 설정
         for (FormattedTimeSlot event : calendarEvents) {
             if ("설문 기반 추천".equals(event.getDescription())) {
-                event.setSourceType("short-recommend");  // "설문 기반 추천"인 경우 "short-recommend"
+                event.setSourceType("short-recommend");
             } else {
-                event.setSourceType("calendar");  // 나머지 일정은 "calendar"
+                event.setSourceType("calendar");
             }
-            System.out.println("Event Title: " + event.getTitle() + ", SourceType: " + event.getSourceType());
         }
 
+        // 5. 추천X(캘린더만) 시나리오 추가
         if (!calendarEvents.isEmpty()) {
+            List<FormattedTimeSlot> calendarOnlyCopy = calendarEvents.stream()
+                    .map(e -> new FormattedTimeSlot(
+                            e.getTitle(),
+                            e.getDescription(),
+                            e.getStartTime(),
+                            e.getEndTime(),
+                            e.getSourceType()
+                    )).collect(Collectors.toList());
+
             result.add(new RecommendationOption(
                     "calendar",
                     "추천X(캘린더)",
-                    calendarEvents,
-                    "",  // startTime
-                    ""   // endTime
+                    calendarOnlyCopy,
+                    "",
+                    ""
             ));
         }
-
         // 장르별 추천을 생성 (긴 추천)
-        List<RecommendationOption> eventOptions = pickTwoDifferentGenresWithDifferentSlots(todayEvents, availableSlots, targetDate);
+        List<RecommendationOption> eventOptions = pickTwoDifferentGenresAllowSameSlot(todayEvents, targetDate);
 
+        // 🎯 "긴 추천" 2개를 각기 분리해서 calendarEvents + 추천1, calendarEvents + 추천2 형태로 넣기
         for (RecommendationOption rec : eventOptions) {
             List<FormattedTimeSlot> recommended = (List<FormattedTimeSlot>) rec.getData();
 
-            for (FormattedTimeSlot r : recommended) {
-                r.setSourceType("long-recommend");
-            }
+            // 각 추천 일정에 sourceType을 long-recommend로 지정
+            List<FormattedTimeSlot> copiedRecommended = recommended.stream()
+                    .map(r -> new FormattedTimeSlot(
+                            r.getTitle(),
+                            r.getDescription(),
+                            r.getStartTime(),
+                            r.getEndTime(),
+                            "long-recommend"
+                    ))
+                    .collect(Collectors.toList());
 
-            // 👇 이 부분만 바꿔줍니다 (calendarEvent 전체 복사)
-            List<FormattedTimeSlot> combined = new ArrayList<>();
-            combined.addAll(calendarEvents); // 겹치는 거 상관 없이 전부 포함
-            combined.addAll(recommended);
+            // 🔧 calendarEvents도 깊은 복사로 분리
+            List<FormattedTimeSlot> calendarCopy = calendarEvents.stream()
+                    .map(e -> new FormattedTimeSlot(
+                            e.getTitle(),
+                            e.getDescription(),
+                            e.getStartTime(),
+                            e.getEndTime(),
+                            e.getSourceType()
+                    ))
+                    .collect(Collectors.toList());
+
+            calendarCopy.addAll(copiedRecommended);
 
             result.add(new RecommendationOption(
                     "event",
                     rec.getLabel(),
-                    combined,
+                    calendarCopy,
                     rec.getStartTime(),
                     rec.getEndTime()
             ));
         }
+
+
+
 
 
 
@@ -221,6 +246,62 @@ public class LongService {
     }
 
 
+    private List<RecommendationOption> pickTwoDifferentGenresAllowSameSlot(List<Event> events, LocalDate date) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+        ZoneId zone = ZoneId.of("Asia/Seoul");
+
+        List<Event> todayEvents = events.stream()
+                .filter(e -> {
+                    LocalDate start = safeParseDate(e.getStrtdate());
+                    LocalDate end = safeParseDate(e.getEndDate());
+                    return !date.isBefore(start) && !date.isAfter(end);
+                })
+                .collect(Collectors.toList());
+
+        Map<String, List<Event>> genreMap = todayEvents.stream()
+                .collect(Collectors.groupingBy(Event::getCodename));
+
+        List<String> shuffledGenres = new ArrayList<>(genreMap.keySet());
+        Collections.shuffle(shuffledGenres);
+
+        List<RecommendationOption> options = new ArrayList<>();
+        int added = 0;
+
+        for (String genre : shuffledGenres) {
+            if (added >= 2) break;
+
+            List<Event> genreEvents = genreMap.get(genre);
+            if (genreEvents == null || genreEvents.isEmpty()) continue;
+
+            Event event = genreEvents.get(0);
+
+            ZonedDateTime now = ZonedDateTime.now(zone).withHour(14).withMinute(0).withSecond(0).withNano(0);  // 기본 추천 시간
+            ZonedDateTime end = now.plusHours(1);
+
+            String formattedStart = now.format(formatter);
+            String formattedEnd = end.format(formatter);
+
+            FormattedTimeSlot slot = new FormattedTimeSlot(
+                    event.getTitle(),
+                    event.getPlace(),
+                    formattedStart,
+                    formattedEnd,
+                    "long-recommend"
+            );
+
+            options.add(new RecommendationOption(
+                    "event",
+                    genre,
+                    Collections.singletonList(slot),
+                    formattedStart,
+                    formattedEnd
+            ));
+
+            added++;
+        }
+
+        return options;
+    }
 
 
 
@@ -449,31 +530,53 @@ public class LongService {
     }
 
 
-    private List<RecommendationOption> pickTwoDifferentGenresWithDifferentSlots(List<Event> events, List<FormattedTimeSlot> slots,
-                                                                                LocalDate date) {
-        LocalDate today = date;  // 👈 파라미터로 받은 날짜를 그대로 사용
-
+    private List<RecommendationOption> pickTwoDifferentGenresWithDifferentSlots(List<Event> events, List<FormattedTimeSlot> slots, LocalDate date) {
+        LocalDate today = date;
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
         ZoneId zone = ZoneId.of("Asia/Seoul");
 
+        // ✅ 로그: 초기 데이터 상태 확인
+        System.out.println("✅ 입력된 이벤트 수: " + events.size());
+        System.out.println("✅ 입력된 슬롯 수: " + slots.size());
+
         List<Event> todayEvents = events.stream()
-                .filter(e -> !today.isBefore(safeParseDate(e.getStrtdate())) && !today.isAfter(safeParseDate(e.getEndDate())))
+                .filter(e -> {
+                    LocalDate start = safeParseDate(e.getStrtdate());
+                    LocalDate end = safeParseDate(e.getEndDate());
+                    boolean isValid = !today.isBefore(start) && !today.isAfter(end);
+                    if (!isValid) {
+                        System.out.println("❌ 날짜 제외됨: " + e.getTitle() + " (" + start + " ~ " + end + ")");
+                    }
+                    return isValid;
+                })
                 .collect(Collectors.toList());
+
+        System.out.println("✅ 필터링된 오늘 이벤트 수: " + todayEvents.size());
 
         List<FormattedTimeSlot> validSlots = slots.stream()
                 .filter(slot -> {
                     try {
                         ZonedDateTime start = ZonedDateTime.parse(slot.getStartTime());
                         ZonedDateTime end = ZonedDateTime.parse(slot.getEndTime());
-                        return !start.toLocalTime().isBefore(LocalTime.of(8, 0))
+                        long duration = Duration.between(start, end).toMinutes();
+                        boolean valid = !start.toLocalTime().isBefore(LocalTime.of(8, 0))
                                 && !end.toLocalTime().isAfter(LocalTime.of(22, 0))
-                                && Duration.between(start, end).toMinutes() >= 60;
+                                && duration >= 60;
+                        if (!valid) {
+                            System.out.println("❌ 무시된 슬롯: " + slot.getStartTime() + " ~ " + slot.getEndTime());
+                        }
+                        return valid;
                     } catch (Exception e) {
                         return false;
                     }
                 }).collect(Collectors.toList());
 
-        if (validSlots.size() < 2) return new ArrayList<>();
+        System.out.println("✅ 유효한 슬롯 수: " + validSlots.size());
+
+        if (validSlots.size() < 1) {
+            System.out.println("❌ 유효 슬롯 부족. 추천 생성 실패");
+            return new ArrayList<>();
+        }
 
         Map<String, List<Event>> genreMap = todayEvents.stream()
                 .collect(Collectors.groupingBy(Event::getCodename));
@@ -482,17 +585,34 @@ public class LongService {
         Collections.shuffle(shuffledGenres);
 
         List<RecommendationOption> options = new ArrayList<>();
-        int genreIndex = 0;
+        Set<Integer> usedSlotIndices = new HashSet<>();
+        int addedCount = 0;
 
-        for (int i = 0; i < 2 && genreIndex < shuffledGenres.size() && i < validSlots.size(); genreIndex++) {
-            String genre = shuffledGenres.get(genreIndex);
+        for (String genre : shuffledGenres) {
+            if (addedCount >= 2 || usedSlotIndices.size() >= validSlots.size()) break;
+
             List<Event> genreEvents = genreMap.get(genre);
             if (genreEvents == null || genreEvents.isEmpty()) continue;
 
-            Event event = genreEvents.get(0);
-            FormattedTimeSlot slot = validSlots.get(i); // 각 추천에 서로 다른 슬롯 사용
+            // 슬롯 선택
+            FormattedTimeSlot selectedSlot = null;
+            int selectedSlotIndex = -1;
+            for (int i = 0; i < validSlots.size(); i++) {
+                if (!usedSlotIndices.contains(i)) {
+                    selectedSlot = validSlots.get(i);
+                    selectedSlotIndex = i;
+                    break;
+                }
+            }
 
-            ZonedDateTime recoStart = ZonedDateTime.parse(slot.getStartTime());
+            if (selectedSlot == null) continue;
+
+            Event event = genreEvents.get(0);
+
+            System.out.println("🎯 추천 생성: " + event.getTitle() + " (" + genre + ")");
+            System.out.println("🕒 사용 슬롯: " + selectedSlot.getStartTime());
+
+            ZonedDateTime recoStart = ZonedDateTime.parse(selectedSlot.getStartTime());
             ZonedDateTime recoEnd = recoStart.plusHours(1);
 
             String formattedStart = recoStart.withZoneSameInstant(zone).format(formatter);
@@ -512,12 +632,13 @@ public class LongService {
                     Collections.singletonList(eventSlot),
                     formattedStart,
                     formattedEnd
-
             ));
 
-            i++; // 슬롯 인덱스는 무조건 2번만 돈다
+            usedSlotIndices.add(selectedSlotIndex);
+            addedCount++;
         }
 
+        System.out.println("✅ 최종 추천 생성 수: " + options.size());
         return options;
     }
 
