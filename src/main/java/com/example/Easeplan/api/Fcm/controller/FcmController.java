@@ -107,7 +107,7 @@ public class FcmController {
     }
     // 예약 알림 요청 DTO
 
-
+@Operation ( summary ="테스트입니다.. ")
     @GetMapping("/test-send")
     public ResponseEntity<?> testSend(@AuthenticationPrincipal UserDetails userDetails,@RequestParam String token) {
         try {
