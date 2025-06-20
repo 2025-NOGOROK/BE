@@ -23,7 +23,7 @@ public class LongController {
 
     private final LongService longService;
     @Operation(
-            summary = "처음 캘린더+추천 일정 시나리오 조회",
+            summary = "처음 긴 추천 (최초 1회 저장) +추천 일정 시나리오 조회",
             description = "오늘의 내 캘린더 일정과 추천 일정(오늘 행사하는 장르별 2개)을 합쳐서 반환합니다. "
                     + "각 추천 일정은 실제 캘린더에 삽입되기 전 미리보기 상태입니다."
     )
