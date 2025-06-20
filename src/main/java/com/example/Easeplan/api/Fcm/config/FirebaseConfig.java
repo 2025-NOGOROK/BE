@@ -25,8 +25,8 @@ public class FirebaseConfig {
                     .setCredentials(GoogleCredentials.fromStream(serviceAccount))
                     .build();
 
-            if (FirebaseApp.getApps().stream().noneMatch(app -> app.getName().equals("easeplan"))) {
-                FirebaseApp.initializeApp(options, "easeplan");
+            if (FirebaseApp.getApps().stream().noneMatch(app -> app.getName().equals("nogorok"))) {
+                FirebaseApp.initializeApp(options, "nogorok");
             }
         } catch (Exception e) {
             throw new RuntimeException("Firebase 서비스 계정 키 로딩 실패: " + keyPath, e);
