@@ -19,8 +19,8 @@ public class DynamicCrawlingService {
         Map<String, Object> result = new HashMap<>();
         List<Map<String, String>> contents = new ArrayList<>();
 
-        // ✅ 크롬드라이버 경로 설정
-        System.setProperty("webdriver.chrome.driver", "D:\\chromedriver-win64\\chromedriver.exe");
+        // 크롬 드라이버 경로 설정
+        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
 
         ChromeOptions options = new ChromeOptions();
         // options.addArguments("--headless"); // 테스트 시에는 주석 처리
