@@ -1,66 +1,105 @@
 package com.example.Easeplan.api.MainPage.service;
 
-import org.openqa.selenium.By;
-import org.openqa.selenium.WebDriver;
-import org.openqa.selenium.WebElement;
-import org.openqa.selenium.chrome.ChromeDriver;
-import org.openqa.selenium.chrome.ChromeOptions;
-import org.openqa.selenium.support.ui.ExpectedConditions;
-import org.openqa.selenium.support.ui.WebDriverWait;
+import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 import org.springframework.stereotype.Service;
 
-import java.time.Duration;
-import java.util.List;
+import java.util.*;
 
+@Slf4j
 @Service
 public class DynamicCrawlingService1 {
 
-    public String crawlLawtimesArticle() {
-        // 크롬 드라이버 경로 설정
-        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
-
-        // 크롬 옵션 설정 (헤드리스 모드 등)
-        ChromeOptions options = new ChromeOptions();
-        options.addArguments("--headless");
-        options.addArguments("--disable-gpu");
-        options.addArguments("--no-sandbox");
-        options.addArguments("--disable-dev-shm-usage");
-
-        WebDriver driver = null;
-        StringBuilder result = new StringBuilder();
+    public List<Map<String, String>> crawlTeenStressSectionWithImage() {
+        List<Map<String, String>> result = new ArrayList<>();
 
         try {
-            // 크롬 드라이버 시작
-            driver = new ChromeDriver(options);
-            WebDriverWait wait = new WebDriverWait(driver, Duration.ofSeconds(10));
+            String url = "https://www.teenstress.co.kr/teen03";
+            Document doc = Jsoup.connect(url).get();
 
-            // Lawtimes 기사 페이지 열기
-            driver.get("https://www.lawtimes.co.kr/opinion/197462");
+            Element section = doc.selectFirst("section#stress_resolve");
+            if (section == null) return result;
 
-            // div.css-1rywr2z.e1ogx6dn0 요소가 화면에 나타날 때까지 기다림
-            WebElement articleDiv = wait.until(ExpectedConditions.visibilityOfElementLocated(By.cssSelector("div.css-1rywr2z.e1ogx6dn0")));
+            Elements elements = section.select("*");
+            String currentH3 = null;
+            String currentH4 = null;
+            String currentH5 = null;
+            StringBuilder paragraphBuilder = new StringBuilder();
+            List<String> imageUrls = new ArrayList<>();
 
-            // 1. 텍스트 추출
-            result.append("[글]\n");
-            result.append(articleDiv.getText()).append("\n\n");
+            for (Element el : elements) {
+                switch (el.tagName()) {
+                    case "h3":
+                        currentH3 = el.text();
+                        break;
+                    case "h4":
+                        if (currentH4 != null && currentH5 != null && paragraphBuilder.length() > 0) {
+                            Map<String, String> item = new LinkedHashMap<>();
+                            item.put("h3", currentH3);
+                            item.put("h4", currentH4);
+                            item.put("h5", currentH5);
+                            item.put("p", paragraphBuilder.toString().trim());
+                            if (!imageUrls.isEmpty()) {
+                                item.put("image", String.join(", ", imageUrls));
+                            }
+                            result.add(item);
+                        }
+                        currentH4 = el.text();
+                        currentH5 = null;
+                        paragraphBuilder.setLength(0);
+                        imageUrls.clear();
+                        break;
 
-            // 2. 이미지 src 추출
-            List<WebElement> images = articleDiv.findElements(By.tagName("img"));
-            result.append("[이미지]\n");
-            for (WebElement img : images) {
-                String imgUrl = img.getAttribute("src");
-                result.append(imgUrl).append("\n");
+                    case "h5":
+                        if (currentH5 != null && paragraphBuilder.length() > 0) {
+                            Map<String, String> item = new LinkedHashMap<>();
+                            item.put("h4", currentH4);
+                            item.put("h5", currentH5);
+                            item.put("p", paragraphBuilder.toString().trim());
+                            if (!imageUrls.isEmpty()) {
+                                item.put("image", String.join(", ", imageUrls));
+                            }
+                            result.add(item);
+                        }
+                        currentH5 = el.text();
+                        paragraphBuilder.setLength(0);
+                        imageUrls.clear();
+                        break;
+
+                    case "p":
+                        paragraphBuilder.append(el.text()).append(" ");
+                        break;
+
+                    case "img":
+                        String src = el.attr("src").trim();
+                        if (!src.startsWith("http")) {
+                            src = "https://www.teenstress.co.kr" + (src.startsWith("/") ? "" : "/") + src;
+                        }
+                        imageUrls.add(src);
+                        break;
+                }
             }
 
-            return result.toString();
+            // 마지막 블록 처리
+            if (currentH4 != null && currentH5 != null && paragraphBuilder.length() > 0) {
+                Map<String, String> item = new LinkedHashMap<>();
+                item.put("h4", currentH4);
+                item.put("h5", currentH5);
+                item.put("p", paragraphBuilder.toString().trim());
+                if (!imageUrls.isEmpty()) {
+                    item.put("image", String.join(", ", imageUrls));
+                }
+                result.add(item);
+            }
 
         } catch (Exception e) {
             e.printStackTrace();
-            return "크롤링 실패: " + e.getMessage();
-        } finally {
-            if (driver != null) {
-                driver.quit(); // driver 종료
-            }
         }
+
+        return result;
     }
+
 }
