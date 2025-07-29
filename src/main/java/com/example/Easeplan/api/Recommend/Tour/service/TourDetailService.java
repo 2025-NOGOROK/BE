@@ -12,35 +12,23 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 @Service
-public class TourApiService {
+public class TourDetailService {
 
     @Value("${tour.api.service-key}")
     private String serviceKey;
 
-    public String getLocationBasedList(int numOfRows, int pageNo, double mapX, double mapY) throws Exception {
-        double deltaLat = 10.0 / 111.0;
-        double deltaLon = 10.0 / (111.0 * Math.cos(Math.toRadians(mapY)));
-
-        double gpsxfrom = mapX - deltaLon;
-        double gpsxto = mapX + deltaLon;
-        double gpsyfrom = mapY - deltaLat;
-        double gpsyto = mapY + deltaLat;
-
-        String apiUrl = "https://apis.data.go.kr/B553457/cultureinfo/period2";
+    public String getDetailInfo(String seq) throws Exception {
+        String apiUrl = "https://apis.data.go.kr/B553457/cultureinfo/detail2";
 
         String urlStr = UriComponentsBuilder.fromHttpUrl(apiUrl)
                 .queryParam("serviceKey", serviceKey)
-                .queryParam("numOfrows", numOfRows)
-                .queryParam("PageNo", pageNo)
-                .queryParam("gpsxfrom", gpsxfrom)
-                .queryParam("gpsxto", gpsxto)
-                .queryParam("gpsyfrom", gpsyfrom)
-                .queryParam("gpsyto", gpsyto)
-                .queryParam("type", "json") // 무시되더라도 넣기
+                .queryParam("seq", seq)
+                .queryParam("type", "json")
                 .build()
                 .toString();
 
-        HttpURLConnection conn = (HttpURLConnection) new URL(urlStr).openConnection();
+        URL url = new URL(urlStr);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
         conn.setRequestMethod("GET");
         conn.setRequestProperty("Content-type", "application/json");
 
