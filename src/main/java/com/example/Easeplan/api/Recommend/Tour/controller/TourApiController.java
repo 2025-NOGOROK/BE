@@ -44,14 +44,25 @@ public class TourApiController {
     }
 
 
-    @Operation(summary = "투어 상세 조회", description = """
+    @Operation(
+            summary = "투어 상세 조회",
+            description = """
         추천된 문화 행사의 상세 정보를 조회합니다.<br>
-        예: seq=305418
-        """)
+        예: seq=305418<br>
+        - seq: 추천된 행사 목록 응답 중 하나의 seq 값<br>
+        - 현 위치와의 거리 차이는 `distanceText` 필드에 km 단위로 표시됩니다.
+        """
+    )
+
     @GetMapping("/api/tour/detail")
-    public String getTourDetail( @AuthenticationPrincipal UserDetails userDetails, @RequestParam String seq) throws Exception {
-        return tourDetailService.getDetailInfo(seq);
+    public String getTourDetail(
+            @RequestParam String seq,
+            @RequestParam(required = false) Double mapX, // 현재 경도
+            @RequestParam(required = false) Double mapY  // 현재 위도
+    ) throws Exception {
+        return tourDetailService.getDetailInfo(seq, mapX, mapY);
     }
+
 
 
 }
