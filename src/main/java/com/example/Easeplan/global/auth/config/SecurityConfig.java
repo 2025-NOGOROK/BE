@@ -69,8 +69,8 @@ public class SecurityConfig {
                                  "/api/survey", "/api/devices/heartrate","/api/culture/events"
                         ).permitAll()
                         .requestMatchers(
-                                "/api/survey/select", "/api/survey/scenarios", "/api/short-recommend", "/api/haru/**","/api/tour/location","/api/long-recommend/**",
-                                "/api/fcm/**", "/api/mypage/**", "/api/devices/latest", "/api/fcm/register","/api/weekly/**","/api/monthly/**","/api/crawl/**"
+                                "/api/survey/select", "/api/survey/scenarios", "/api/short-recommend", "/api/haru/**","/api/long-recommend/**",
+                                "/api/fcm/**", "/api/mypage/**", "/api/devices/latest", "/api/fcm/register","/api/crawl/**","/api/weekly/**","/api/monthly/**","/api/tour/location","api/tour/detail"
                         ).authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
