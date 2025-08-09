@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 
-@Tag(name = "주간리포트", description = "평균 스트레스+감정/피로도+날씨")
+@Tag(name = "주간 리포트", description = "평균 스트레스+감정/피로도+날씨")
 @RestController
 public class WeekController {
 

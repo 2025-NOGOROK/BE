@@ -56,6 +56,7 @@ public class TourApiController {
 
     @GetMapping("/api/tour/detail")
     public String getTourDetail(
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam String seq,
             @RequestParam(required = false) Double mapX, // 현재 경도
             @RequestParam(required = false) Double mapY  // 현재 위도
