@@ -4,6 +4,7 @@ import com.example.Easeplan.api.Calendar.config.GoogleOAuthProperties;
 import com.example.Easeplan.api.Calendar.dto.FormattedTimeSlot;
 import com.example.Easeplan.api.Calendar.dto.TimeSlot;
 import com.example.Easeplan.global.auth.domain.User;
+import com.example.Easeplan.global.auth.exception.GlobalExceptionHandler;
 import com.example.Easeplan.global.auth.repository.UserRepository;
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
@@ -15,13 +16,12 @@ import com.google.api.services.calendar.model.*;
 import com.google.auth.http.HttpCredentialsAdapter;
 import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.UserCredentials;
+import jakarta.transaction.Transactional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.io.IOException;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -38,29 +38,80 @@ public class GoogleCalendarService {
         this.userRepository = userRepository;
         this.googleOAuthProperties = googleOAuthProperties;
     }
-    public Calendar getCalendarService(User user) throws Exception {
-        // jwtToken을 통해 구글 Access Token을 얻어옴
-        String jwtToken = user.getJwtToken();
-        String googleAccessToken = getGoogleAccessTokenFromJwt(jwtToken);
+    @Transactional
+    public Calendar getCalendarService(User authUser) throws Exception {
+        // 1) JWT → email 추출 (의도대로 유지)
+        final String email = oAuthService.getGoogleUserEmailFromJwt(authUser.getJwtToken());
 
-        if (googleAccessToken == null) {
-            throw new RuntimeException("구글 액세스 토큰을 얻을 수 없습니다.");
+        // 2) 이메일로 유저 조회
+        User u = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found by email: " + email));
+
+        // 3) refresh_token 없으면 재연동 요구
+        if (u.getGoogleRefreshToken() == null || u.getGoogleRefreshToken().isBlank()) {
+            throw new GlobalExceptionHandler.GoogleRelinkRequiredException();
         }
 
-        UserCredentials userCredentials = UserCredentials.newBuilder()
+        // 4) 초기 AccessToken (만료시각은 UTC로)
+        AccessToken initial = null;
+        if (u.getGoogleAccessToken() != null && u.getGoogleAccessTokenExpiresAt() != null) {
+            Date expiryUtc = Date.from(u.getGoogleAccessTokenExpiresAt().atZone(ZoneId.of("UTC")).toInstant());
+            initial = new AccessToken(u.getGoogleAccessToken(), expiryUtc);
+        }
+
+        // 5) UserCredentials
+        UserCredentials creds = UserCredentials.newBuilder()
                 .setClientId(googleOAuthProperties.getWebClientId())
                 .setClientSecret(googleOAuthProperties.getClientSecret())
-                .setAccessToken(new AccessToken(googleAccessToken, null))
+                .setRefreshToken(u.getGoogleRefreshToken())
+                .setAccessToken(initial)
                 .build();
 
-        HttpCredentialsAdapter requestInitializer = new HttpCredentialsAdapter(userCredentials);
+        // 6) 만료 시 자동 갱신 (라이브러리에게 맡김)
+        try {
+            creds.refreshIfExpired();
+        } catch (IOException e) {
+            throw new GlobalExceptionHandler.GoogleRelinkRequiredException(e);
+        }
 
+        AccessToken current = creds.getAccessToken();
+        if (current == null || current.getTokenValue() == null) {
+            throw new GlobalExceptionHandler.GoogleRelinkRequiredException();
+        }
+
+        // 7) 최신 토큰/만료시각 DB 반영 (UTC로 저장)
+        LocalDateTime newExpUtc = current.getExpirationTime() == null
+                ? null
+                : LocalDateTime.ofInstant(current.getExpirationTime().toInstant(), ZoneId.of("UTC"));
+        u.setGoogleAccessToken(current.getTokenValue());
+        u.setGoogleAccessTokenExpiresAt(newExpUtc);
+        userRepository.save(u);
+
+        // 8) Calendar 클라이언트
         return new Calendar.Builder(
                 GoogleNetHttpTransport.newTrustedTransport(),
                 GsonFactory.getDefaultInstance(),
-                requestInitializer
+                new HttpCredentialsAdapter(creds)
         ).setApplicationName("Easeplan").build();
     }
+
+    @FunctionalInterface
+    interface Call<T> { T run() throws Exception; }
+
+    private <T> T withRetry401(User user, Call<T> c) throws Exception {
+        try {
+            return c.run();
+        } catch (com.google.api.client.googleapis.json.GoogleJsonResponseException e) {
+            if (e.getStatusCode() == 401) {
+                // 내부 갱신 후 1회 재시도
+                getCalendarService(user);
+                return c.run();
+            }
+            throw e;
+        }
+    }
+
+
 
 
 
@@ -70,14 +121,17 @@ public class GoogleCalendarService {
         DateTime timeMin = new DateTime(timeMinStr);
         DateTime timeMax = new DateTime(timeMaxStr);
 
-        return service.events().list(calendarId)
-                .setTimeMin(timeMin)
-                .setTimeMax(timeMax)
-                .setMaxResults(100)
-                .setOrderBy("startTime")
-                .setSingleEvents(true)
-                .execute();
+        return withRetry401(user, () ->
+                service.events().list(calendarId)
+                        .setTimeMin(timeMin)
+                        .setTimeMax(timeMax)
+                        .setMaxResults(100)
+                        .setOrderBy("startTime")
+                        .setSingleEvents(true)
+                        .execute()
+        );
     }
+
 
     public List<FormattedTimeSlot> getFormattedEvents(User user, String calendarId, String timeMin, String timeMax) throws Exception {
         Events events = getEvents(user, calendarId, timeMin, timeMax);
@@ -239,25 +293,5 @@ public class GoogleCalendarService {
         Calendar service = getCalendarService(user);
         service.events().delete(calendarId, eventId).execute();
     }
-
-
-
-    // JWT 토큰에서 구글 액세스 토큰을 얻는 메서드
-    public String getGoogleAccessTokenFromJwt(String jwtToken) {
-        try {
-            // JWT 토큰에서 이메일을 추출
-            String email = oAuthService.getGoogleUserEmailFromJwt(jwtToken); // 기존의 getGoogleUserEmailFromJwt 메서드를 사용
-            // User 객체 가져오기
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found"));
-            // Google OAuth 액세스 토큰 반환
-            return user.getGoogleAccessToken();
-        } catch (Exception e) {
-            log.error("Error extracting Google Access Token from JWT", e);
-            return null;
-        }
-    }
-
-
 
 }

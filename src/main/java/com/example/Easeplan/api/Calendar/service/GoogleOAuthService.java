@@ -83,57 +83,8 @@ public class GoogleOAuthService {
         }
     }
 
-    // JWT 토큰 검증 메서드
-    public boolean isValidGoogleJwtToken(String accessToken) {
-        try {
-            // GoogleIdTokenVerifier 객체 생성
-            NetHttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
-            JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
 
-            // GoogleIdTokenVerifier 설정
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(transport, jsonFactory)
-                    .setAudience(Collections.singletonList(googleOAuthProperties.getWebClientId()))  // 클라이언트 ID로 검증
-                    .build();
 
-            // JWT 토큰 검증
-            GoogleIdToken idToken = verifier.verify(accessToken);
-            if (idToken != null) {
-                log.info("Google JWT Token is valid.");
-                return true;
-            } else {
-                log.warn("Invalid Google JWT token.");
-                return false;
-            }
-        } catch (Exception e) {
-            log.error("Error verifying Google JWT token", e);
-            return false;
-        }
-    }
-
-    // Google JWT에서 이메일을 추출
-    public String getEmailFromGoogleJwtToken(String token) {
-        try {
-            // GoogleIdTokenVerifier 객체 생성
-            NetHttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
-            JsonFactory jsonFactory = GsonFactory.getDefaultInstance();
-
-            // GoogleIdTokenVerifier 설정
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(transport, jsonFactory)
-                    .setAudience(Collections.singletonList(googleOAuthProperties.getWebClientId()))  // 클라이언트 ID로 검증
-                    .build();
-
-            // GoogleIdToken을 사용하여 토큰을 검증
-            GoogleIdToken idToken = verifier.verify(token);
-            if (idToken != null) {
-                return idToken.getPayload().getEmail(); // 이메일 추출
-            } else {
-                throw new RuntimeException("Invalid Google JWT token.");
-            }
-        } catch (Exception e) {
-            log.error("Error extracting email from Google JWT token", e);
-            throw new RuntimeException("Error extracting email from Google JWT token", e);
-        }
-    }
 
     // JWT에서 이메일을 추출하는 메서드
 
