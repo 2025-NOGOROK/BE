@@ -58,7 +58,6 @@ public class GoogleCalendarController {
     private GoogleCalendarService googleCalendarService;
 
 
-
     @Autowired
     private JwtUtil jwtUtil;
     private final JwtUtil jwtProvider;
