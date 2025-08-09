@@ -115,7 +115,6 @@ public class GoogleCalendarService {
 
 
 
-
     public Events getEvents(User user, String calendarId, String timeMinStr, String timeMaxStr) throws Exception {
         Calendar service = getCalendarService(user);
         DateTime timeMin = new DateTime(timeMinStr);
