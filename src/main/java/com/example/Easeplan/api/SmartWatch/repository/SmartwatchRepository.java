@@ -7,10 +7,7 @@ import com.example.Easeplan.global.auth.domain.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
-
-import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 public interface SmartwatchRepository extends JpaRepository<HeartRate, Long> {
@@ -24,8 +21,10 @@ public interface SmartwatchRepository extends JpaRepository<HeartRate, Long> {
             @Param("startTime") String startTime,
             @Param("endTime") String endTime
     );
+    // 해당 월에 데이터 존재 여부
+    boolean existsByUserEmailAndStartTimeStartingWith(String email, String monthPrefix);
 
-
+    List<HeartRate> findByUserEmailAndStartTimeStartingWith(String email, String dayPrefix);
 
 
 }
