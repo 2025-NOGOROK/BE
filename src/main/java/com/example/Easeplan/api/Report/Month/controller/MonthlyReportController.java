@@ -1,101 +1,71 @@
 package com.example.Easeplan.api.Report.Month.controller;
 
-import com.example.Easeplan.api.Report.Month.dto.EmotionPercentResponse;
-import com.example.Easeplan.api.Report.Month.dto.DailyStressResponse;
+import com.example.Easeplan.api.Report.Month.dto.MonthlyReportResponse;
+import com.example.Easeplan.api.Report.Month.dto.MonthlyStressReportResponse;
+import com.example.Easeplan.api.Report.Month.dto.MonthlyStressTrendResponse;
 import com.example.Easeplan.api.Report.Month.service.MonthlyReportService;
-import com.example.Easeplan.global.auth.domain.User;
-import com.example.Easeplan.global.auth.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.*;
+import com.example.Easeplan.api.Report.Month.service.MonthlyStressReportService;
+import com.example.Easeplan.api.Report.Month.service.MonthlyStressTrendService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.ZoneId;
 
+@Tag(name = "월간 리포트", description = "월간 쉼표 리포트와 스트레스")
 @RestController
+@RequestMapping("/api/report")
 @RequiredArgsConstructor
-@Tag(name = "월간 리포트", description = "월간 감정 비율 및 스트레스 통계 API")
-@RequestMapping("/api/monthly")
 public class MonthlyReportController {
-    private final MonthlyReportService monthlyReportService;
-    private final UserRepository userRepository;
 
-    // 감정별 비율
-    @Operation(
-            summary = "월간 감정별 비율 조회",
-            description = """
-            사용자의 한 달간 감정 기록을 분석해 감정별 비율(%)을 반환합니다.
-            - year,month 안넣으면 현재날짜 기준으로 자동 반환
-            - year: 조회 연도 (예: 2025)
-            - month: 조회 월 (예: 5)
-            ### 반환 예시
-            ```
-            {
-              "emotionPercent": {
-                "JOY": 32.0,
-                "DEPRESSED": 12.0,
-                "NORMAL": 40.0,
-                "IRRITATED": 8.0,
-                "ANGRY": 8.0
-              }
-            }
-            ```
-            """
-    )
-    @GetMapping("/emotion")
-    public ResponseEntity<EmotionPercentResponse> getEmotionPercent(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
-        User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-        LocalDate now = LocalDate.now();
-        int y = (year != null) ? year : now.getYear();
-        int m = (month != null) ? month : now.getMonthValue();
-        return ResponseEntity.ok(monthlyReportService.getEmotionPercent(user, y, m));
+    private final MonthlyReportService reportService;
+    private final MonthlyStressReportService stressreService;
+    private final MonthlyStressTrendService stresstrService;
+
+    @Operation(summary = "월간 쉼표 리포트",
+            description = "해당 월의 짧은/긴 쉼표 개수 및 전월 대비 증감을 반환합니다.")
+    @GetMapping("/monthly")
+    public MonthlyReportResponse getMonthlyReport(   // ← 여기!
+                                                     @AuthenticationPrincipal UserDetails user,
+                                                     @RequestParam(required = false) Integer year,
+                                                     @RequestParam(required = false) Integer month
+    ) throws Exception {
+        YearMonth ym = (year == null || month == null)
+                ? YearMonth.now(ZoneId.of("Asia/Seoul"))
+                : YearMonth.of(year, month);
+
+        return reportService.getMonthlyPauseReport(user.getUsername(), ym);
     }
 
 
-    // 날짜별 스트레스
-
-    @Operation(
-            summary = "월간 날짜별 평균 스트레스 및 이모티콘 조회",
-            description = """
-            사용자의 한 달간 날짜별 평균 스트레스(avg)와 5단계 이모티콘을 반환합니다.
-            - year,month 안넣으면 현재날짜 기준으로 자동 반환
-            - year: 조회 연도 (예: 2025)
-            - month: 조회 월 (예: 5)
-            - emoji는 숫자로 반환, 20: 😄, 40: 🙂, 60: 😐, 80: 😟, 100: 😫
-            ### 반환 예시
-            ```
-            {
-              "dailyStressList": [
-                {"date": "2025-05-01", "avg": 35.0, "emoji": "20"},
-                {"date": "2025-05-02", "avg": 70.0, "emoji": "40"},
-                ...
-              ]
-            }
-            ```
-            """
-    )
-    @GetMapping("/stress")
-    public ResponseEntity<DailyStressResponse> getDailyStress(
-            @AuthenticationPrincipal UserDetails userDetails,
+    @Operation(summary = "월간 스트레스 & 쉼표 리포트",
+            description = "해당 월의 하루 평균 스트레스가 가장 높았던 날/가장 낮았던 날과, 각 날의 짧은·긴·응급 쉼표 일정을 반환합니다.")
+    @GetMapping("/monthly-stress")
+    public MonthlyStressReportResponse getMonthlyStress(
+            @AuthenticationPrincipal UserDetails user,
             @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
+            @RequestParam(required = false) Integer month
+    ) throws Exception {
+        YearMonth ym = (year == null || month == null)
+                ? YearMonth.now(ZoneId.of("Asia/Seoul"))
+                : YearMonth.of(year, month);
 
-        User user = userRepository.findByEmail(userDetails.getUsername())
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        LocalDate now = LocalDate.now();
-        int y = (year != null) ? year : now.getYear();
-        int m = (month != null) ? month : now.getMonthValue();
-
-        return ResponseEntity.ok(monthlyReportService.getDailyStress(user, y, m));
+        return stressreService.getMonthlyStressReport(user.getUsername(), ym);
     }
 
+    @Operation(
+            summary = "최근 월별 스트레스 지수 (최대 3개월)",
+            description = "가장 최근 달부터 데이터가 있는 달만 최대 3개월의 월 평균 스트레스를 반환합니다."
+    )
+    @GetMapping("/monthly-stress-trend")
+    public MonthlyStressTrendResponse getTrend(@AuthenticationPrincipal UserDetails user) {
+        return stresstrService.getRecentMonthlyStress(user.getUsername());
+    }
 }
-
