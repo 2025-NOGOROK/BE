@@ -177,6 +177,7 @@ public class AuthController {
         }
     }
 
+
     @Operation(summary = "비밀번호 변경 시 이메일 확인", description = """
             비밀번호를 변경 시 이메일을 조회합니다.""")
     @PostMapping("/checkEmail")
