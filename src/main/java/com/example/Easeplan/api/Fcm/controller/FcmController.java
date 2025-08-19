@@ -107,18 +107,20 @@ public class FcmController {
     }
     // 예약 알림 요청 DTO
 
-@Operation ( summary ="테스트입니다.. ")
+    @Operation(summary = "테스트입니다..")
     @GetMapping("/test-send")
-    public ResponseEntity<?> testSend(@AuthenticationPrincipal UserDetails userDetails,@RequestParam String token) {
-        try {
-
-            String response = fcmService.sendMessage(token, "백엔드 테스트", "서버에서 FCM 보내기 성공!");
-            return ResponseEntity.ok("FCM 전송 성공: " + response);
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(500).body("FCM 전송 실패: " + e.getMessage());
+    public ResponseEntity<?> testSend(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam String token
+    ) {
+        boolean ok = fcmService.sendMessage(token, "백엔드 테스트", "서버에서 FCM 보내기 성공!");
+        if (ok) {
+            return ResponseEntity.ok("FCM 전송 성공");
+        } else {
+            return ResponseEntity.status(502).body("FCM 전송 실패"); // 502 Bad Gateway 정도가 적당
         }
     }
+
 
 
 }

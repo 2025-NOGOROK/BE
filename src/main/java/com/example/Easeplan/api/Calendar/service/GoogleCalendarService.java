@@ -4,7 +4,7 @@ import com.example.Easeplan.api.Calendar.config.GoogleOAuthProperties;
 import com.example.Easeplan.api.Calendar.dto.FormattedTimeSlot;
 import com.example.Easeplan.api.Calendar.dto.TimeSlot;
 import com.example.Easeplan.global.auth.domain.User;
-import com.example.Easeplan.global.auth.exception.GlobalExceptionHandler;
+import com.example.Easeplan.global.exception.GlobalExceptionHandler;
 import com.example.Easeplan.global.auth.repository.UserRepository;
 
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
@@ -40,12 +40,18 @@ public class GoogleCalendarService {
     }
     @Transactional
     public Calendar getCalendarService(User authUser) throws Exception {
+
+
         // 1) JWT → email 추출 (의도대로 유지)
-        final String email = oAuthService.getGoogleUserEmailFromJwt(authUser.getJwtToken());
+        final String email = authUser.getEmail();
 
         // 2) 이메일로 유저 조회
         User u = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found by email: " + email));
+
+        if (!u.isGoogleLinked()) {
+            throw new GlobalExceptionHandler.GoogleRelinkRequiredException("Google not linked");
+        }
 
         // 3) refresh_token 없으면 재연동 요구
         if (u.getGoogleRefreshToken() == null || u.getGoogleRefreshToken().isBlank()) {

@@ -12,18 +12,9 @@ public class DailyNotificationScheduler {
         this.fcmService = fcmService;
     }
 
-    // 매일 22시(한국시간)에 토픽으로 알림 전송
+    // 매일 22시(한국) 토픽 전송 (실패해도 예외 던지지 않음)
     @Scheduled(cron = "0 0 22 * * *", zone = "Asia/Seoul")
     public void sendDailyNotification() {
-        String topic = "daily_10pm";
-        String title = "하루 기록 알림";
-        String body = "오늘의 기록을 남겨보세요!";
-
-        try {
-            fcmService.sendToTopic(topic, title, body);
-        } catch (Exception e) {
-            // 로깅 또는 예외 처리
-            e.printStackTrace();
-        }
+        fcmService.sendToTopic("daily_10pm", "하루 기록 알림", "오늘의 기록을 남겨보세요!");
     }
 }
