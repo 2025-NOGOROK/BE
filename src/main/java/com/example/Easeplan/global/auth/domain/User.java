@@ -75,6 +75,17 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "google_auth_code")
     private String googleAuthCode;  // 구글 OAuth 코드 추가
 
+    // 연동 여부 판단: refresh 토큰이 있으면 연동된 것으로 간주
+    public boolean isGoogleLinked() {
+        return this.googleRefreshToken != null && !this.googleRefreshToken.isBlank();
+    }
+
+    // 연동 해제(토큰/만료정보 제거)
+    public void unlinkGoogle() {
+        this.googleAccessToken = null;
+        this.googleRefreshToken = null;
+        this.googleAccessTokenExpiresAt = null;
+    }
 
 
     @Column(name = "google_access_token")
