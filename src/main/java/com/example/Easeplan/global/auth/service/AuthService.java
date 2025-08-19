@@ -1,13 +1,12 @@
 package com.example.Easeplan.global.auth.service;
 
 import com.example.Easeplan.api.Calendar.service.GoogleOAuthService;
+import com.example.Easeplan.global.auth.domain.RefreshToken;
 import com.example.Easeplan.global.auth.domain.User;
 import com.example.Easeplan.global.auth.dto.*;
 import com.example.Easeplan.global.auth.repository.RefreshTokenRepository;
 import com.example.Easeplan.global.auth.repository.UserRepository;
-import jakarta.servlet.http.HttpSession;
 import jakarta.transaction.Transactional;
-import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -66,7 +65,7 @@ public class AuthService {
                 .locationPolicyAgreed(request.locationPolicyAgreed())
                 .build();
 
-        userRepository.save(newUser);
+        User saved = userRepository.save(newUser);
 
         // 토큰 발급 등 기존 로직
         String accessToken = jwtUtil.createAccessToken(newUser);
@@ -74,7 +73,8 @@ public class AuthService {
 
         refreshTokenRepository.save(
                 RefreshToken.builder()
-                        .email(newUser.getEmail())
+                        .user(saved)                     // 🔴 필수
+                        .email(saved.getEmail())
                         .token(refreshToken)
                         .build()
         );
