@@ -8,6 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
@@ -20,7 +21,6 @@ public class NotificationScheduler {
     private final FcmService fcmService;
     private final ScheduledNotificationRepository repository;
 
-    // DateTimeFormatter (yyyy-MM-dd HH:mm 형식)
     private static final DateTimeFormatter formatter =
             DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
 
@@ -34,38 +34,42 @@ public class NotificationScheduler {
         this.repository = repository;
     }
 
-    // 단발성 알림 예약 (직접 시간 지정)
+    /** 단발성 알림 예약 */
     public void scheduleAlarm(String token, String title, String body, Instant alarmTime) {
         taskScheduler.schedule(() -> {
-            try {
-                fcmService.sendMessage(token, title, body);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+            boolean ok = fcmService.sendMessage(token, title, body);
+            // 실패해도 예외 안 던짐. 필요하면 재시도 로직만 추가
         }, Date.from(alarmTime));
     }
 
-    // 1분마다 예약된 알림 체크 (DB 기반)
+    /** 1분마다 예약 알림 체크 */
     @Scheduled(fixedRate = 60_000)
     public void checkNotifications() {
         ZonedDateTime now = ZonedDateTime.now(ZoneId.of("Asia/Seoul"));
-
-        // 현재 시간 이전에 예약된 미발송 알림 조회
         List<ScheduledNotification> notifications =
                 repository.findByNotifyAtBeforeAndIsSentFalse(now);
 
-        notifications.forEach(notification -> {
+        notifications.forEach(n -> {
+            String msg = n.getTitle() + " 일정이 " + n.getNotifyAt().format(formatter) + "에 시작합니다!";
             try {
-                fcmService.sendMessage(
-                        notification.getFcmToken(),
-                        "🔔 " + notification.getTitle(),
-                        notification.getTitle() + " 일정이 " +
-                                notification.getNotifyAt().format(formatter) + "에 시작합니다!"
+                boolean ok = fcmService.sendMessage(
+                        n.getFcmToken(),
+                        "🔔 " + n.getTitle(),
+                        msg
                 );
-                notification.setSent(true);
-                repository.save(notification);
+                if (ok) {
+                    n.setSent(true);
+                } else {
+                    n.setRetryCount(n.getRetryCount() + 1);
+                    n.setLastError("FCM 전송 실패(unknown)");
+                }
             } catch (Exception e) {
-                e.printStackTrace();
+                n.setRetryCount(n.getRetryCount() + 1);
+                n.setLastError(e.getMessage());
             }
-        }); }
+            n.setLastTried(LocalDateTime.now());
+            repository.save(n);
+        });
+
+    }
 }
