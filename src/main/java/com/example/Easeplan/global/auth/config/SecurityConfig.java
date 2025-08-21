@@ -4,6 +4,7 @@ import com.example.Easeplan.global.auth.service.JwtAuthenticationFilter;
 import jakarta.annotation.PostConstruct;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -42,10 +43,11 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
-        config.addAllowedOriginPattern("*"); // 모든 오리진 허용
-        config.addAllowedHeader("*");
-        config.addAllowedMethod("*");
+        config.setAllowedOriginPatterns(List.of("http://localhost:*", "http://127.0.0.1:*", "https://recommend.ai.kr"));
+        config.setAllowedMethods(List.of("GET","POST","PUT","PATCH","DELETE","OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Authorization"));
+
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
@@ -61,6 +63,7 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
                                 "/error", "/callback.html", "/static/**", "/error/**",
                                 "/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**", "/webjars/**",
@@ -70,7 +73,7 @@ public class SecurityConfig {
                         ).permitAll()
                         .requestMatchers(
                                 "/api/survey/select", "/api/survey/scenarios", "/api/short-recommend", "/api/haru/**","/api/long-recommend/**",
-                                "/api/fcm/**", "/api/mypage/**", "/api/devices/latest", "/api/fcm/register","/api/crawl/**","/api/weekly/**","/api/monthly/**","/api/tour/location","api/tour/detail"
+                                "/api/fcm/**", "/api/mypage/**", "/api/devices/latest", "/api/fcm/register","/api/crawl/**","/api/weekly/**","/api/monthly/**","/api/tour/location","/api/tour/detail"
                         ).authenticated()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
