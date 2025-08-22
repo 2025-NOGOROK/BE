@@ -5,7 +5,6 @@ import com.example.Easeplan.api.Emergency.repository.EmergencyStressEventReposit
 import com.example.Easeplan.api.Fcm.service.FcmService;
 import com.example.Easeplan.api.SmartWatch.domain.HeartRate;
 import com.example.Easeplan.api.SmartWatch.repository.SmartwatchRepository;
-
 import com.example.Easeplan.global.auth.domain.User;
 import com.example.Easeplan.global.auth.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -13,38 +12,37 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-
+import java.time.*;
+import java.util.List;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
 public class EmergencyStressService {
 
-    private static final int WINDOW_DAYS = 14;
-    private static final int MIN_HIGH_DAYS = 11;
-    private static final double THRESHOLD = 70.0;
+    private static final int WINDOW_DAYS = 14;      // 최근 14일
+    private static final int MIN_HIGH_DAYS = 11;    // 그 중 11일 이상
+    private static final double THRESHOLD = 70.0;   // stressEma 임계값(0~100)
 
     private final UserRepository userRepository;
     private final SmartwatchRepository smartwatchRepository;
     private final FcmService fcmService;
     private final EmergencyStressEventRepository eventRepository;
 
-    private static final DateTimeFormatter F = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-
-    @Scheduled(cron = "0 0 1 * * *", zone = "Asia/Seoul") //1h
+    // 매일 01:00 (KST) 실행
+    @Scheduled(cron = "0 0 1 * * *", zone = "Asia/Seoul")
     @Transactional
     public void evaluateAllUsersAndTrigger() {
-        LocalDate today = LocalDate.now();
-        LocalDate endDate = today.minusDays(1);
+        ZoneId KST = ZoneId.of("Asia/Seoul");
+        LocalDate today = LocalDate.now(KST);
+        LocalDate endDate = today.minusDays(1); // 오늘 제외, 어제까지
 
         for (User user : userRepository.findAll()) {
             if (!user.isPushNotificationAgreed()) continue;
 
-            int highDays = countHighStressDays(user, endDate);
+            int highDays = countHighStressDays(user, endDate, KST);
             if (highDays < MIN_HIGH_DAYS || !shouldSendFcm(user, today)) continue;
 
-            // 이미 PENDING 이벤트가 있다면 중복 생성 방지(선택)
             boolean hasPending = eventRepository
                     .findTopByUserAndStatusOrderByCreatedAtDesc(user, EmergencyStressEvent.Status.PENDING)
                     .isPresent();
@@ -54,14 +52,16 @@ public class EmergencyStressService {
             var event = EmergencyStressEvent.builder()
                     .user(user)
                     .status(EmergencyStressEvent.Status.PENDING)
-                    .createdAt(java.time.LocalDateTime.now())
+                    .createdAt(LocalDateTime.now(KST))
                     .build();
             eventRepository.save(event);
 
-            // 2) FCM 발송 (활성화 여부 묻기)
+            // 2) FCM 발송
             if (user.getFcmTokens() != null) {
                 for (String token : user.getFcmTokens()) {
-                    try { fcmService.sendEmergencyStressAsk(token, event.getId()); } catch (Exception ignored) {}
+                    try {
+                        fcmService.sendEmergencyStressAsk(token, event.getId());
+                    } catch (Exception ignored) {}
                 }
             }
 
@@ -71,25 +71,29 @@ public class EmergencyStressService {
         }
     }
 
-    private int countHighStressDays(User user, LocalDate endDate) {
+    private int countHighStressDays(User user, LocalDate endDate, ZoneId zone) {
         int highDays = 0;
         for (int i = 0; i < WINDOW_DAYS; i++) {
             LocalDate target = endDate.minusDays(i);
-            var day = smartwatchRepository.findByUserAndStartTimeBetween(
-                    user,
-                    target.atStartOfDay().format(F),
-                    target.atTime(23, 59, 59).format(F)
-            );
+
+            long dayStartMs = target.atStartOfDay(zone).toInstant().toEpochMilli();
+            long dayEndMsEx = target.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli(); // exclusive
+
+            List<HeartRate> day = smartwatchRepository
+                    .findByUserEmailAndTimestampBetween(user.getEmail(), dayStartMs, dayEndMsEx - 1);
 
             if (day.isEmpty()) continue;
 
             double dailyAvg = day.stream()
-                    .filter(hr -> hr.getAvg() != null)
-                    .mapToDouble(HeartRate::getAvg)
+                    .map(HeartRate::getStressEma)           //  avg → stressEma
+                    .filter(Objects::nonNull)
+                    .mapToDouble(Double::doubleValue)
                     .average()
-                    .orElse(0.0);
+                    .orElse(Double.NaN);
 
-            if (dailyAvg >= THRESHOLD) highDays++;
+            if (!Double.isNaN(dailyAvg) && dailyAvg >= THRESHOLD) {
+                highDays++;
+            }
         }
         return highDays;
     }
