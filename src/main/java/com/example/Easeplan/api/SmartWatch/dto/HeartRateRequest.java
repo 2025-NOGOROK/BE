@@ -1,19 +1,28 @@
 package com.example.Easeplan.api.SmartWatch.dto;
 
-import lombok.Builder;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
-@Setter
+@AllArgsConstructor
+@NoArgsConstructor
 public class HeartRateRequest {
     private String email;
-    private Float min;
-    private Float max;
-    private Float avg;
-    private String startTime;
-    private String endTime;
-    private Integer count;
-    private Float stress;
+    private List<HeartRateSample> samples;
+
+    @Getter
+    @AllArgsConstructor
+    @NoArgsConstructor
+    public static class HeartRateSample {
+        private Long timestamp;
+        private Integer heartRate;
+        private Double rmssd;
+        private Double stressEma; //스트레스 지수
+        private Double stressRaw;
+    }
 }
 
