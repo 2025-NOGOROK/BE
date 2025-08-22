@@ -1,6 +1,7 @@
 package com.example.Easeplan.api.Fcm.controller;
 
 import com.example.Easeplan.api.Fcm.domain.ScheduledNotification;
+import com.example.Easeplan.api.Fcm.dto.NotificationScheduleRequest;
 import com.example.Easeplan.api.Fcm.repository.ScheduledNotificationRepository;
 import com.example.Easeplan.api.Fcm.service.FcmService;
 import com.example.Easeplan.global.auth.domain.User;
@@ -11,9 +12,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-import com.example.Easeplan.api.Fcm.dto.NotificationScheduleRequest; // ✅ 올바른 DTO 임포트
 
 import java.time.ZonedDateTime;
+import java.util.Map;
 
 @Tag(name = "FCM", description = "FCM API")
 @RestController
@@ -33,7 +34,7 @@ public class FcmController {
         this.notificationRepo = notificationRepo;
     }
 
-    // 1. FCM 토큰 등록
+    // 1) FCM 토큰 등록
     @Operation(summary = "FCM 토큰 등록", description = "사용자의 FCM 토큰을 서버에 저장합니다.")
     @PostMapping("/register")
     public ResponseEntity<Void> registerFcmToken(
@@ -47,80 +48,80 @@ public class FcmController {
         return ResponseEntity.ok().build();
     }
 
-
-
-    // 3. 예약 알림 등록
+    // 2) 예약 알림 등록 (세터 없이 저장)
     @Operation(
             summary = "예약 알림 등록",
             description = """
         사용자가 설정한 시간에 FCM 알림을 예약합니다.<br>
         <b>헤더에 accessToken을 포함해야 합니다.</b><br><br>
-        
-        <b>요청 본문 예시:</b>
-        <pre>
-{
-  "title": "회의 시작 알림",
-  "startDateTime": "2025-05-20T14:00:00+09:00",
-  "minutesBeforeAlarm": 10
-}
-        </pre>
-
-        <b>필드 설명:</b>
-        - title: 알림 제목 (최대 100자) <b>[필수]</b><br>
-        - startDateTime: 일정 시작 시간 (ISO 8601 형식, 예: 2025-05-20T14:00:00+09:00) <b>[필수]</b><br>
-        - minutesBeforeAlarm: 알림을 보낼 시간(분 단위, 1~1440) <b>[필수]</b><br>
-
-        <b>유효성 검사:</b>
-        1. startDateTime은 현재 시간보다 미래여야 함
-        2. minutesBeforeAlarm은 1 이상 1440 이하 정수
-        
-        <b>응답:</b>
-        - 200 OK: 알림 예약 성공
-        - 400 Bad Request: 유효하지 않은 입력 값
-        - 401 Unauthorized: 인증 실패
-        """
+        요청 본문:
+        {
+          "title": "회의 시작 알림",
+          "startDateTime": "2025-05-20T14:00:00+09:00",
+          "minutesBeforeAlarm": 10
+        }"""
     )
     @PostMapping("/schedule")
     public ResponseEntity<?> scheduleNotification(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestBody NotificationScheduleRequest request
     ) {
+        // 기본 검증
+        if (request.title() == null || request.title().isBlank()) {
+            return ResponseEntity.badRequest().body("title은 필수입니다.");
+        }
+        if (request.minutesBeforeAlarm() < 1 || request.minutesBeforeAlarm() > 1440) {
+            return ResponseEntity.badRequest().body("minutesBeforeAlarm은 1~1440 사이여야 합니다.");
+        }
+        if (request.startDateTime() == null) {
+            return ResponseEntity.badRequest().body("startDateTime은 필수입니다.");
+        }
+
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        if (user.getFcmTokens().isEmpty()) {
-            throw new RuntimeException("등록된 FCM 토큰이 없습니다");
+
+        if (user.getFcmTokens() == null || user.getFcmTokens().isEmpty()) {
+            return ResponseEntity.badRequest().body("등록된 FCM 토큰이 없습니다.");
         }
         String fcmToken = user.getFcmTokens().get(0);
 
-        // 1. 알림 시간 계산
-        ZonedDateTime notifyAt = request.startDateTime()
-                .minusMinutes(request.minutesBeforeAlarm());
+        ZonedDateTime now = ZonedDateTime.now(request.startDateTime().getZone());
+        if (!request.startDateTime().isAfter(now)) {
+            return ResponseEntity.badRequest().body("startDateTime은 현재보다 미래여야 합니다.");
+        }
 
-        // 2. 예약 알림 저장
-        ScheduledNotification notification = new ScheduledNotification();
-        notification.setTitle(request.title());
-        notification.setFcmToken(fcmToken);
-        notification.setNotifyAt(notifyAt);
+        ZonedDateTime notifyAt = request.startDateTime().minusMinutes(request.minutesBeforeAlarm());
+        if (!notifyAt.isAfter(now)) {
+            return ResponseEntity.badRequest().body("알림 시간이 현재보다 이후가 되도록 minutesBeforeAlarm을 조정하세요.");
+        }
+
+        // 세터 없이 빌더로 생성
+        ScheduledNotification notification = ScheduledNotification.builder()
+                .title(request.title())
+                .fcmToken(fcmToken)
+                .notifyAt(notifyAt)
+                .build();
+
         notificationRepo.save(notification);
 
-        return ResponseEntity.ok("알림 예약 완료");
+        return ResponseEntity.ok(
+                Map.of(
+                        "message", "알림 예약 완료",
+                        "id", notification.getId(),
+                        "notifyAt", notifyAt.toString()
+                )
+        );
     }
-    // 예약 알림 요청 DTO
 
-    @Operation(summary = "테스트입니다..")
+    // 3) 단건 테스트 발송
+    @Operation(summary = "테스트 FCM 발송")
     @GetMapping("/test-send")
     public ResponseEntity<?> testSend(
             @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam String token
     ) {
         boolean ok = fcmService.sendMessage(token, "백엔드 테스트", "서버에서 FCM 보내기 성공!");
-        if (ok) {
-            return ResponseEntity.ok("FCM 전송 성공");
-        } else {
-            return ResponseEntity.status(502).body("FCM 전송 실패"); // 502 Bad Gateway 정도가 적당
-        }
+        return ok ? ResponseEntity.ok("FCM 전송 성공")
+                : ResponseEntity.status(502).body("FCM 전송 실패");
     }
-
-
-
 }
