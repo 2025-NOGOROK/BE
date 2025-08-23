@@ -17,7 +17,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-@Setter
 @Entity
 @Getter
 @Builder
@@ -198,5 +197,9 @@ public class User extends BaseEntity implements UserDetails {
 
     public void removeFcmToken(String token) {
         fcmTokens.remove(token);
+    }
+
+    public void markAutoBreakFcmSentAt(LocalDate date) {
+        this.lastAutoBreakFcmSentAt = date;
     }
 }
