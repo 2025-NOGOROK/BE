@@ -25,10 +25,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.LocalDateTime;
+import java.time.*;
 
 import java.util.List;
 import java.util.Map;
@@ -110,42 +107,41 @@ public class GoogleCalendarController {
     @GetMapping("/callback")
     public RedirectView googleCallback(@RequestParam("code") String code) {
         try {
-            // 1. 받은 code로 액세스 토큰과 리프레시 토큰을 받음
+            // 1) code → 토큰 교환
             Map<String, Object> tokenResponse = oAuthService.exchangeCodeForToken(code);
-            String accessToken = (String) tokenResponse.get("access_token");
-            String refreshToken = (String) tokenResponse.get("refresh_token");
+            String accessToken   = (String) tokenResponse.get("access_token");
+            String refreshToken  = (String) tokenResponse.get("refresh_token"); // 최초 동의 때만 내려올 수 있음
+            Number expiresInSecN = (Number) tokenResponse.getOrDefault("expires_in", 3600); // 초 단위
+            long   expiresInSec  = expiresInSecN.longValue();
 
-            // 2. 구글 사용자 정보 조회
+            // 2) 구글 사용자 정보 → 이메일
             Map<String, Object> userInfo = oAuthService.getGoogleUserInfo(accessToken);
             String email = (String) userInfo.get("email");
 
-            // 3. 사용자 정보 업데이트 또는 새로 생성
+            // 3) 사용자 조회
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found"));
 
-            // 4. Google 액세스 토큰 및 리프레시 토큰을 User에 저장
-            user.setGoogleAccessToken(accessToken);
-            user.setGoogleRefreshToken(refreshToken);
-            user.setGoogleAccessTokenExpiresAt(LocalDateTime.now().plusSeconds(7200)); // 예시: 1시간 후 만료
-            user.setJwtToken(jwtProvider.createToken(user.getEmail())); // JWT 생성 후 저장
-
-            // 5. DB에 저장 (토큰 갱신)
-            userRepository.save(user);
-
-            // 6. JWT 발급
+            // 4) 우리 서비스 JWT 발급 (앱 딥링크에 실어 보낼 값)
             String jwtToken = jwtProvider.createToken(user.getEmail());
 
-            // 7. 딥링크 URL 생성 (JWT를 앱으로 리디렉션)
-            String redirectUri = "intent://oauth2callback?jwt=" + jwtToken + "#Intent;scheme=com.example.nogorok;package=com.example.nogorok;end";
+            // 5) 만료시각(UTC) 계산 후, 도메인 메서드로 토큰/만료/JWT 한 번에 갱신
+            LocalDateTime expiresAtUtc = LocalDateTime.now(ZoneOffset.UTC).plusSeconds(expiresInSec);
+            user.updateGoogleTokens(accessToken, refreshToken, expiresAtUtc, jwtToken);
+            userRepository.save(user);
 
-            // 8. 앱 딥링크 URI로 리디렉션
-            return new RedirectView(redirectUri); // 리디렉션 URL을 반환
+            // 6) 앱 딥링크로 리다이렉트 (JWT 포함)
+            String redirectUri =
+                    "intent://oauth2callback?jwt=" + jwtToken
+                            + "#Intent;scheme=com.example.nogorok;package=com.example.nogorok;end";
+            return new RedirectView(redirectUri);
 
         } catch (Exception e) {
             log.error("구글 인증 처리 중 오류", e);
-            return new RedirectView("/error"); // 오류 발생 시 에러 페이지로 리디렉션
+            return new RedirectView("/error");
         }
     }
+
 
 
 
