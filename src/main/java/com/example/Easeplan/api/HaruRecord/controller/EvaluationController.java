@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 
-@SecurityRequirement(name = "accessToken")
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "하루기록", description = "하루기록 API")
 @RestController
 @RequestMapping("/api/haru")

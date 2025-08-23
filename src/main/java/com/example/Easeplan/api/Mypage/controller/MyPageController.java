@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 
 @Tag(name = "마이페이지", description = "마이페이지 API")
-@SecurityRequirement(name = "accessToken")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/mypage")
