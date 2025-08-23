@@ -38,6 +38,7 @@ public class EvaluationController {
     }
 
 
+
     // ★ 추가: 기록 저장 API
     @Operation(
             summary = "하루기록 저장",

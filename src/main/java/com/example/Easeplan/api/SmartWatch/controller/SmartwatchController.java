@@ -53,6 +53,7 @@ public class SmartwatchController {
         return ResponseEntity.ok("원시 데이터 저장 성공");
     }
 
+
     @Operation(
             summary = "가장 최신 stressEma 반환",
             description = """

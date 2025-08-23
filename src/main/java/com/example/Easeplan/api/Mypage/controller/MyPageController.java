@@ -52,6 +52,7 @@ public class MyPageController {
     }
 
 
+
     @Operation(
             summary = "생활패턴 설문 수정",
             description = """
