@@ -124,9 +124,11 @@ public class GoogleOAuthService {
             String newAccess = (String) body.get("access_token");
             Long expiresIn = ((Number) body.get("expires_in")).longValue();
 
-            user.setGoogleAccessToken(newAccess);
-            user.setGoogleAccessTokenExpiresAt(LocalDateTime.now(ZoneOffset.UTC).plusSeconds(expiresIn));
+            LocalDateTime expUtc = LocalDateTime.now(ZoneOffset.UTC).plusSeconds(expiresIn);
+// refreshToken/JWT는 그대로 유지 (null 넘기면 기존 값 유지되도록 User에 구현돼 있음)
+            user.updateGoogleTokens(newAccess, null, expUtc, user.getJwtToken());
             userRepository.save(user);
+
             return newAccess;
 
         } catch (HttpClientErrorException e) {
