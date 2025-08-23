@@ -66,7 +66,7 @@ public class EmergencyStressService {
             }
 
             // 3) 2주 재전송 방지
-            user.setLastAutoBreakFcmSentAt(today);
+            user.markAutoBreakFcmSentAt(today);
             userRepository.save(user);
         }
     }
