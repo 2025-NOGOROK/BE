@@ -2,37 +2,37 @@ package com.example.Easeplan.api.SmartWatch.service;
 
 import com.example.Easeplan.api.SmartWatch.domain.HeartRate;
 
-import java.time.LocalDateTime;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+import java.time.*;
 import java.util.*;
 import java.util.stream.*;
 
 public class HeartRateAnalyzer {
 
-    // 날짜+시간이 "2025-05-22T17:00:00" 형식이라고 가정
-    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
+    private static LocalDate toLocalDateKST(long epochMs) {
+        return Instant.ofEpochMilli(epochMs).atZone(ZoneId.of("Asia/Seoul")).toLocalDate();
+    }
 
+    /** 날짜별 평균 stressEma */
     public static Map<LocalDate, Double> getDateAvgStress(List<HeartRate> heartRates) {
         return heartRates.stream()
+                .filter(hr -> hr.getTimestamp() != null && hr.getStressEma() != null)
                 .collect(Collectors.groupingBy(
-                        hr -> LocalDateTime.parse(hr.getStartTime(), formatter).toLocalDate(),
-                        Collectors.averagingDouble(hr -> hr.getStress() == null ? 0 : hr.getStress())
+                        hr -> toLocalDateKST(hr.getTimestamp()),
+                        Collectors.averagingDouble(HeartRate::getStressEma)
                 ));
     }
 
+    /** 요일별 평균 stressEma (월~일) */
     public static Map<String, Double> getDayOfWeekAvgStress(List<HeartRate> heartRates) {
         return heartRates.stream()
+                .filter(hr -> hr.getTimestamp() != null && hr.getStressEma() != null)
                 .collect(Collectors.groupingBy(
-                        hr -> {
-                            LocalDate date = LocalDateTime.parse(hr.getStartTime(), formatter).toLocalDate();
-                            return getKorDayOfWeek(date.getDayOfWeek());
-                        },
-                        Collectors.averagingDouble(hr -> hr.getStress() == null ? 0 : hr.getStress())
+                        hr -> getKorDayOfWeek(toLocalDateKST(hr.getTimestamp()).getDayOfWeek()),
+                        Collectors.averagingDouble(HeartRate::getStressEma)
                 ));
     }
 
-    private static String getKorDayOfWeek(java.time.DayOfWeek dow) {
+    private static String getKorDayOfWeek(DayOfWeek dow) {
         switch (dow) {
             case MONDAY: return "월";
             case TUESDAY: return "화";

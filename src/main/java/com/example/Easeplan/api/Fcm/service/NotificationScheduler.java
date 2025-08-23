@@ -7,10 +7,7 @@ import org.springframework.scheduling.TaskScheduler;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
 import java.util.List;
@@ -38,7 +35,7 @@ public class NotificationScheduler {
     public void scheduleAlarm(String token, String title, String body, Instant alarmTime) {
         taskScheduler.schedule(() -> {
             boolean ok = fcmService.sendMessage(token, title, body);
-            // 실패해도 예외 안 던짐. 필요하면 재시도 로직만 추가
+            // 실패 시 별도 재시도/로그 필요하면 이쪽에서 처리
         }, Date.from(alarmTime));
     }
 
@@ -49,7 +46,7 @@ public class NotificationScheduler {
         List<ScheduledNotification> notifications =
                 repository.findByNotifyAtBeforeAndIsSentFalse(now);
 
-        notifications.forEach(n -> {
+        for (ScheduledNotification n : notifications) {
             String msg = n.getTitle() + " 일정이 " + n.getNotifyAt().format(formatter) + "에 시작합니다!";
             try {
                 boolean ok = fcmService.sendMessage(
@@ -58,18 +55,14 @@ public class NotificationScheduler {
                         msg
                 );
                 if (ok) {
-                    n.setSent(true);
+                    n.markSent(LocalDateTime.now());
                 } else {
-                    n.setRetryCount(n.getRetryCount() + 1);
-                    n.setLastError("FCM 전송 실패(unknown)");
+                    n.markFailed("FCM 전송 실패(unknown)", LocalDateTime.now());
                 }
             } catch (Exception e) {
-                n.setRetryCount(n.getRetryCount() + 1);
-                n.setLastError(e.getMessage());
+                n.markFailed(e.getMessage(), LocalDateTime.now());
             }
-            n.setLastTried(LocalDateTime.now());
-            repository.save(n);
-        });
-
+            repository.save(n); // 더티체킹으로도 되지만 명시 save 유지
+        }
     }
 }
