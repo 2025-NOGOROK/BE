@@ -89,9 +89,9 @@ public class GoogleCalendarService {
         LocalDateTime newExpUtc = current.getExpirationTime() == null
                 ? null
                 : LocalDateTime.ofInstant(current.getExpirationTime().toInstant(), ZoneId.of("UTC"));
-        u.setGoogleAccessToken(current.getTokenValue());
-        u.setGoogleAccessTokenExpiresAt(newExpUtc);
+        u.updateGoogleTokens(current.getTokenValue(), null, newExpUtc, u.getJwtToken());
         userRepository.save(u);
+
 
         // 8) Calendar 클라이언트
         return new Calendar.Builder(
