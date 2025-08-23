@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-@SecurityRequirement(name = "accessToken")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/devices")
@@ -52,6 +52,7 @@ public class SmartwatchController {
         smartwatchService.saveData(request);
         return ResponseEntity.ok("원시 데이터 저장 성공");
     }
+
 
     @Operation(
             summary = "가장 최신 stressEma 반환",
