@@ -7,6 +7,7 @@ import com.example.Easeplan.api.Report.Month.service.MonthlyReportService;
 import com.example.Easeplan.api.Report.Month.service.MonthlyStressReportService;
 import com.example.Easeplan.api.Report.Month.service.MonthlyStressTrendService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -18,7 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.YearMonth;
 import java.time.ZoneId;
-
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "월간 리포트", description = "월간 쉼표 리포트와 스트레스")
 @RestController
 @RequestMapping("/api/report")

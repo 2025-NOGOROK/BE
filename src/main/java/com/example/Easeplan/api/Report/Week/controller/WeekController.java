@@ -6,6 +6,7 @@ import com.example.Easeplan.api.Report.Week.dto.WeeklyWeatherResponse;
 import com.example.Easeplan.api.Report.Week.service.WeeklyService;
 import com.example.Easeplan.global.auth.domain.User;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 
 @Tag(name = "주간 리포트", description = "평균 스트레스+감정/피로도+날씨")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 public class WeekController {
 

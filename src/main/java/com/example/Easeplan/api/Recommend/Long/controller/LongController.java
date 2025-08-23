@@ -4,6 +4,7 @@ import com.example.Easeplan.api.Recommend.Long.RecommendationResult.Recommendati
 import com.example.Easeplan.api.Recommend.Long.dto.RecommendationOption;
 import com.example.Easeplan.api.Recommend.Long.service.LongService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
 @Tag(name = "긴 추천", description = "공연예술 긴 추천 API")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/long-recommend")
 @RequiredArgsConstructor

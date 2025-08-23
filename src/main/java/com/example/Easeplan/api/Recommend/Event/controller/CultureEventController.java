@@ -2,6 +2,7 @@ package com.example.Easeplan.api.Recommend.Event.controller;
 
 import com.example.Easeplan.api.Recommend.Event.service.CultureEventService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -9,6 +10,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 public class CultureEventController {
     private final CultureEventService cultureEventService;

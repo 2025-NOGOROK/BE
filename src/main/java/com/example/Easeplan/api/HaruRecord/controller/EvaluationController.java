@@ -17,6 +17,7 @@ import java.time.LocalDate;
 
 @SecurityRequirement(name = "bearerAuth")
 @Tag(name = "하루기록", description = "하루기록 API")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/haru")
 public class EvaluationController {

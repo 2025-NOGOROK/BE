@@ -4,6 +4,7 @@ import com.example.Easeplan.api.MainPage.dto.request.QuizSubmitRequest;
 import com.example.Easeplan.api.MainPage.dto.response.QuizSubmitResponse;
 import com.example.Easeplan.api.MainPage.service.QuizService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "메인페이지", description = "스트레스 퀴즈")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/mainpage/quiz")
 @RequiredArgsConstructor
