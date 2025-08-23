@@ -22,7 +22,7 @@ public class DynamicCrawlingService {
 
         System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
         ChromeOptions options = new ChromeOptions();
-        // options.addArguments("--headless=new");
+        options.addArguments("--headless=new");
         options.addArguments("--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage");
         options.addArguments("--window-size=1920,1080");
 
