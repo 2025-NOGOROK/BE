@@ -20,7 +20,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
-@Tag(name = "Emergency Stress", description = "긴급 스트레스 모드 관련 API")
+@Tag(name = "긴급 스트레스 모드", description = "긴급 스트레스 모드 관련 API")
 
 @RestController
 @RequestMapping("/api/emergency-stress")
