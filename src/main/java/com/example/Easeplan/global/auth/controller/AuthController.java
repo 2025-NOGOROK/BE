@@ -158,8 +158,10 @@ public class AuthController {
                 String newJwtToken = jwtProvider.createToken(user.getEmail());  // JWT 새로 생성
 
                 // 구글 액세스 토큰과 새로 생성된 JWT를 응답에 추가
-                response.setGoogleAccessToken(newAccessToken);  // 새로 갱신된 구글 액세스 토큰
-                response.setJwtToken(newJwtToken);  // 새로 생성된 JWT
+                response = response.toBuilder()
+                        .googleAccessToken(newAccessToken)
+                        .jwtToken(newJwtToken)
+                        .build();
 
                 // 사용자 정보 업데이트
                 user.updateGoogleTokens(newAccessToken, user.getGoogleRefreshToken(), user.getGoogleAccessTokenExpiresAt(), newJwtToken);
@@ -182,7 +184,7 @@ public class AuthController {
             비밀번호를 변경 시 이메일을 조회합니다.""")
     @PostMapping("/checkEmail")
     public ResponseEntity<?> checkEmail(@RequestBody EmailRequest request) {
-        String email = request.getEmail();
+        String email = request.email();
         boolean exists = authService.existsByEmail(email);
         String message = exists ? "이메일이 존재합니다." : "일치하는 회원정보가 없습니다.";
         return ResponseEntity.ok(new CustomResponse<>(message, exists));
