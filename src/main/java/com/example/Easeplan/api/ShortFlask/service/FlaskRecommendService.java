@@ -18,16 +18,14 @@ public class FlaskRecommendService {
         this.flaskUrl = flaskUrl;
     }
 
-
-
     public List<String> getRecommendations(UserSurveyRequest request) {
-        // ✅ 올바른 getter 메서드 사용
+        // 설문값이 이미 한글로 넘어오므로 그대로 전달
         Map<String, Object> requestBody = Map.of(
-                "schedule", request.getScheduleType(),          // scheduleType → schedule
-                "change", request.getSuddenChangePreferred(),   // suddenChangePreferred → change
-                "time", request.getChronotype(),                // chronotype → time
-                "social", request.getPreferAlone(),             // preferAlone → social
-                "sensory", request.getStressReaction(),         // stressReaction → sensory
+                "schedule", request.getScheduleType(),         // "루즈"/"타이트"
+                "change", request.getSuddenChangePreferred(),  // true/false (Flask에서 O/X 처리)
+                "time", request.getChronotype(),               // "아침"/"저녁"
+                "social", request.getPreferAlone(),            // "혼자"/"함께"
+                "sensory", request.getStressReaction(),        // 감각유형 필드면 그대로 (CSV와 일치해야 함)
                 "stress_input", request.getHasStressRelief() ? "O" : "X",
                 "user_methods", request.getStressReliefMethods()
         );
@@ -40,12 +38,10 @@ public class FlaskRecommendService {
         return response.getBody();
     }
 
-    // FlaskRecommendService.java
     public ResponseEntity<List> callFlaskApi(String url, Map<String, Object> body) {
         return restTemplate.postForEntity(url, body, List.class);
     }
 
-    // FlaskRecommendService.java
     public List<String> getStressRecommendations(UserSurveyRequest request) {
         Map<String, Object> requestBody = Map.of(
                 "schedule", request.getScheduleType(),
@@ -68,5 +64,4 @@ public class FlaskRecommendService {
             default -> 50.0;
         };
     }
-
 }
