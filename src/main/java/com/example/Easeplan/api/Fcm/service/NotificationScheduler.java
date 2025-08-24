@@ -44,7 +44,7 @@ public class NotificationScheduler {
     public void checkNotifications() {
         ZonedDateTime now = ZonedDateTime.now(ZoneId.of("Asia/Seoul"));
         List<ScheduledNotification> notifications =
-                repository.findByNotifyAtBeforeAndIsSentFalse(now);
+                repository.findByNotifyAtBeforeAndSentFalse(now);
 
         for (ScheduledNotification n : notifications) {
             String msg = n.getTitle() + " 일정이 " + n.getNotifyAt().format(formatter) + "에 시작합니다!";
