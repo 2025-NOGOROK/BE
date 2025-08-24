@@ -3,11 +3,13 @@ package com.example.Easeplan.api.Fcm.service;
 import com.example.Easeplan.global.auth.repository.UserRepository;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.messaging.*;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import jakarta.annotation.PostConstruct;
+import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 @Service
@@ -15,7 +17,7 @@ public class FcmService {
     private static final Logger log = LoggerFactory.getLogger(FcmService.class);
     private final UserRepository userRepository;
 
-    // FirebaseApp 인스턴스 이름 (실제 등록한 이름과 일치해야 합니다)
+    // FirebaseApp 인스턴스 이름 (FirebaseConfig 초기화명과 일치)
     private static final String FIREBASE_APP_NAME = "nogorok";
 
     public FcmService(UserRepository userRepository) {
@@ -32,7 +34,7 @@ public class FcmService {
         }
     }
 
-    /** 단건 전송: 성공 true / 실패 false (절대 예외 throw X) */
+    /** 단건 전송: 성공 true / 실패 false (예외 throw 안 함) */
     public boolean sendMessage(String token, String title, String body) {
         if (token == null || token.isBlank()) {
             log.debug("Skip FCM: empty token");
@@ -84,7 +86,7 @@ public class FcmService {
         }
     }
 
-    /** 토픽 전송도 실패해도 false만 반환 */
+    /** 토픽 전송 */
     public boolean sendToTopic(String topic, String title, String body) {
         try {
             FirebaseApp app = FirebaseApp.getInstance(FIREBASE_APP_NAME);
@@ -97,7 +99,6 @@ public class FcmService {
             return true;
 
         } catch (FirebaseMessagingException e) {
-            // 토픽은 UNREGISTERED 개념이 없으니 로깅만
             log.warn("FCM topic send failed: {}", e.getMessagingErrorCode(), e);
             return false;
 
@@ -107,12 +108,12 @@ public class FcmService {
         }
     }
 
-    /** 공통 예외 처리: UNREGISTERED면 토큰 제거. 절대 예외 재던지지 않음 */
+    /** 공통 예외 처리: UNREGISTERED면 토큰 제거 */
     private void handleFcmException(FirebaseMessagingException e, String token) {
         MessagingErrorCode code = e.getMessagingErrorCode();
         if (code == MessagingErrorCode.UNREGISTERED) {
             log.warn("FCM token UNREGISTERED. delete token={}", token);
-            removeTokenFromAllUsers(token); // 성능 최적화는 아래 주석 참고
+            removeTokenFromAllUsers(token);
         } else if (code == MessagingErrorCode.INVALID_ARGUMENT) {
             log.warn("FCM invalid argument (token?) token={}", token, e);
         } else if (code == MessagingErrorCode.SENDER_ID_MISMATCH) {
@@ -122,10 +123,7 @@ public class FcmService {
         }
     }
 
-    /**
-     * ⛔ 현재는 전체 사용자 스캔(O(n)). 트래픽/유저 증가시 성능 이슈.
-     * 권장: userRepository에 단건 삭제 쿼리 추가 (예: deleteByFcmToken)
-     */
+    /** ⛔ O(n) 삭제. 유저 증가 시 repo 단건 삭제 쿼리 권장 */
     private void removeTokenFromAllUsers(String invalidToken) {
         userRepository.findAll().forEach(user -> {
             if (user.getFcmTokens().contains(invalidToken)) {
@@ -135,14 +133,68 @@ public class FcmService {
         });
     }
 
-    /* 성능 최적화 예시 (UserRepository에 구현 권장)
-       @Transactional
-       public void removeToken(String token) {
-           userRepository.deleteByFcmToken(token);
-       }
-     */
+    /** (신규) 토큰 유효성 검증: dry-run data-only 전송 */
+    public Map<String, Object> validateToken(String token) {
+        return sendMessageDebug(token, null, null, Map.of("type", "VALIDATE"), true);
+    }
 
-    /** 비즈니스용 편의 함수 예시 */
+    /** 디버그/검증 공용: dryRun 지원 + 에러 디테일 반환 */
+    public Map<String, Object> sendMessageDebug(String token, String title, String body,
+                                                Map<String, String> data, boolean dryRun) {
+        Map<String, Object> res = new LinkedHashMap<>();
+        try {
+            FirebaseApp app = FirebaseApp.getInstance(FIREBASE_APP_NAME);
+
+            Message.Builder b = Message.builder().setToken(token);
+            if ((title != null && !title.isBlank()) || (body != null && !body.isBlank())) {
+                b.setNotification(Notification.builder()
+                        .setTitle(title == null ? "" : title)
+                        .setBody(body == null ? "" : body)
+                        .build());
+            }
+            if (data != null && !data.isEmpty()) b.putAllData(data);
+
+            String id = FirebaseMessaging.getInstance(app).send(b.build(), dryRun);
+            res.put("ok", true);
+            res.put("dryRun", dryRun);
+            res.put("messageId", id);
+            return res;
+
+        } catch (FirebaseMessagingException e) {
+            res.put("ok", false);
+            res.put("dryRun", dryRun);
+            if (e.getMessagingErrorCode() != null) res.put("code", e.getMessagingErrorCode().name());
+            if (e.getErrorCode() != null)          res.put("errorCode", e.getErrorCode());
+            res.put("msg", e.getMessage());
+
+            try {
+                var http = e.getHttpResponse(); // IncomingHttpResponse
+                if (http != null) {
+                    res.put("httpStatus", http.getStatusCode());
+                    try {
+                        Object bodyObj = http.getContent(); // byte[] 또는 String
+                        if (bodyObj != null) {
+                            if (bodyObj instanceof byte[]) {
+                                res.put("httpBody", new String((byte[]) bodyObj, StandardCharsets.UTF_8));
+                            } else {
+                                res.put("httpBody", bodyObj.toString());
+                            }
+                        }
+                    } catch (Throwable ignored) {}
+                }
+            } catch (Throwable ignored) {}
+
+            return res;
+
+        } catch (Exception e) {
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("ok", false);
+            out.put("msg", e.toString());
+            return out;
+        }
+    }
+
+    /** 비즈니스용 편의 함수 */
     public boolean sendEmergencyStressAsk(String token, Long eventId) {
         return sendMessage(
                 token,
