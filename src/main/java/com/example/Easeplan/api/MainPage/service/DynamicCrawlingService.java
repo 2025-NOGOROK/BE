@@ -20,7 +20,7 @@ public class DynamicCrawlingService {
         Map<String, Object> result = new HashMap<>();
         List<Map<String, String>> contents = new ArrayList<>();
 
-        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver" );
+        System.setProperty("webdriver.chrome.driver", "D:\\\\chromedriver-win64\\\\chromedriver.exe" );
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless=new");
         options.addArguments("--disable-gpu", "--no-sandbox", "--disable-dev-shm-usage");
