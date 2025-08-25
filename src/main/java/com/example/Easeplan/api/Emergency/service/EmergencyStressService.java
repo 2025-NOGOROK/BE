@@ -30,7 +30,7 @@ public class EmergencyStressService {
     private final EmergencyStressEventRepository eventRepository;
 
     // 매일 11:00 (KST) 실행
-    @Scheduled(cron = "0 0 11 * * *", zone = "Asia/Seoul")
+    @Scheduled(cron = "0 0 13 * * *", zone = "Asia/Seoul")
     @Transactional
     public void evaluateAllUsersAndTrigger() {
         ZoneId KST = ZoneId.of("Asia/Seoul");
