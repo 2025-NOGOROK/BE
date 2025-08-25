@@ -86,39 +86,45 @@ public class AuthService {
     }
 
 
-
     @Transactional
     public TokenResponse signIn(SignInRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())  // 수정된 메서드 호출
+        User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new IllegalArgumentException("존재하지 않는 사용자입니다."));
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
             throw new IllegalArgumentException("비밀번호가 일치하지 않습니다.");
         }
 
-        // 1. 구글 액세스 토큰 갱신 (리프레시 토큰으로)
+        // (선택) 구글 액세스 토큰 갱신: 연동 안됐거나 만료면 예외가 올라오게 두고,
+        // 로그인 자체는 계속 진행하려면 try/catch로 감싸서 null 허용하세요.
         String newGoogleAccessToken = oAuthService.getOrRefreshGoogleAccessToken(user);
 
-        // 2. 리프레시 토큰과 함께 새로운 JWT 발급
-        RefreshToken refreshTokenEntity = refreshTokenRepository.findByEmail(user.getEmail())
-                .orElseThrow(() -> new IllegalArgumentException("토큰이 존재하지 않습니다."));
-        String refreshToken = refreshTokenEntity.getToken();
-        String accessToken = "";
+        //  refresh_token 레코드 Self-heal: 없으면 새로 생성
+        RefreshToken rt = refreshTokenRepository.findByEmail(user.getEmail())
+                .orElseGet(() -> refreshTokenRepository.save(
+                        RefreshToken.builder()
+                                .user(user)
+                                .email(user.getEmail())
+                                .token(jwtUtil.createRefreshToken(user))
+                                .build()
+                ));
 
+        String refreshToken = rt.getToken();
+        String accessToken;
         if (jwtUtil.isValidRefreshToken(refreshToken)) {
             accessToken = jwtUtil.createAccessToken(user);
         } else {
             refreshToken = jwtUtil.createRefreshToken(user);
-            refreshTokenEntity.updateToken(refreshToken);
+            rt.updateToken(refreshToken);
             accessToken = jwtUtil.createAccessToken(user);
         }
 
-        // 구글 액세스 토큰을 포함한 응답 반환
         return TokenResponse.builder()
-                .accessToken(accessToken)         // 자체 애플리케이션의 액세스 토큰
-                .refreshToken(refreshToken)       // 애플리케이션의 리프레시 토큰
-                .googleAccessToken(newGoogleAccessToken)  // 구글 액세스 토큰
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .googleAccessToken(newGoogleAccessToken)
                 .build();
     }
+
 
 
 
