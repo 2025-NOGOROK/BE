@@ -7,6 +7,7 @@ import com.example.Easeplan.api.HaruRecord.repository.DailyEvaluationRepository;
 import com.example.Easeplan.global.auth.domain.User;
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 
@@ -25,16 +26,21 @@ public class EvaluationService {
     }
 
     // ★ 추가: 기록 저장 메서드
+    @Transactional
     public void createEvaluation(User user, DailyEvaluationRequest request) {
-        DailyEvaluation evaluation = DailyEvaluation.builder()
-                .user(user)
-                .date(request.getDate())
-                .emotion(request.getEmotion())
-                .fatigueLevel(request.getFatigueLevel())
-                .weather(request.getWeather())
-                .specialNotes(request.getSpecialNotes())
-                .build();
-        evaluationRepository.save(evaluation);
-    }
+        DailyEvaluation entity = evaluationRepository
+                .findTopByUserAndDateOrderByIdDesc(user, request.getDate())
+                .orElse(null);
 
+        if (entity == null) {
+            entity = DailyEvaluation.builder()
+                    .user(user)
+                    .date(request.getDate())
+                    .build();
+        }
+
+        // 엔티티에 업데이트 메서드 하나 추가해서 깔끔하게 갱신
+        entity.updateFrom(request);
+        evaluationRepository.save(entity);
+    }
 }
