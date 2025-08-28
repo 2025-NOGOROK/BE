@@ -1,5 +1,6 @@
 package com.example.Easeplan.api.HaruRecord.domain;
 
+import com.example.Easeplan.api.HaruRecord.dto.DailyEvaluationRequest;
 import com.example.Easeplan.global.auth.domain.BaseEntity;
 import com.example.Easeplan.global.auth.domain.User;
 import jakarta.persistence.*;
@@ -46,4 +47,12 @@ public class DailyEvaluation extends BaseEntity {
 
     @Column(length = 500)
     private String specialNotes;
+
+    public void updateFrom(DailyEvaluationRequest req) {
+        this.emotion = req.getEmotion();
+        this.fatigueLevel = req.getFatigueLevel();
+        this.weather = req.getWeather();
+        this.specialNotes = req.getSpecialNotes();
+        // googleEventId 등 유지/변경 필요 시 여기서 처리
+    }
 }
