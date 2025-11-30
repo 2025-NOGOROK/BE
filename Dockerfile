@@ -6,6 +6,7 @@ RUN apt-get update && apt-get install -y \
     libatk1.0-0 libdrm2 libgbm1 libgtk-3-0 libnspr4 libnss3 \
     libxcomposite1 libxdamage1 libxfixes3 libxkbcommon0 libxrandr2 xdg-utils --no-install-recommends
 
+
 # Google Chrome 설치
 RUN wget -q https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \
     && dpkg -i google-chrome-stable_current_amd64.deb || apt-get install -y -f \
