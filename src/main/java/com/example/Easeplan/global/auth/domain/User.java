@@ -11,16 +11,12 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime; // LocalDateTime 임포트
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 
-// 아래 임포트는 실제 코드에 없었지만, 있다면 주석처리 또는 제거 여부 판단
-// import com.example.Easeplan.api.Calendar.domain.GoogleCalendarInfo; // User 엔티티에서 직접 List<GoogleCalendarInfo>를 관리한다면 필요
-// import com.example.Easeplan.api.SmartWatch.domain.HeartRate; // User 엔티티에서 직접 List<HeartRate>를 관리한다면 필요
-// import com.example.Easeplan.api.Survey.domain.UserSurvey; // User 엔티티에서 직접 UserSurvey를 관리한다면 필요
-@Setter
 @Entity
 @Getter
 @Builder
@@ -78,6 +74,17 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "google_auth_code")
     private String googleAuthCode;  // 구글 OAuth 코드 추가
 
+    // 연동 여부 판단: refresh 토큰이 있으면 연동된 것으로 간주
+    public boolean isGoogleLinked() {
+        return this.googleRefreshToken != null && !this.googleRefreshToken.isBlank();
+    }
+
+    // 연동 해제(토큰/만료정보 제거)
+    public void unlinkGoogle() {
+        this.googleAccessToken = null;
+        this.googleRefreshToken = null;
+        this.googleAccessTokenExpiresAt = null;
+    }
 
 
     @Column(name = "google_access_token")
@@ -93,6 +100,8 @@ public class User extends BaseEntity implements UserDetails {
     @Column(name = "jwt_token")
     private String jwtToken;
 
+    @Column(name = "last_auto_break_fcm_sent_at")
+    private LocalDate lastAutoBreakFcmSentAt;
 
     /**
      * 구글 OAuth 토큰 정보를 업데이트합니다.
@@ -188,5 +197,9 @@ public class User extends BaseEntity implements UserDetails {
 
     public void removeFcmToken(String token) {
         fcmTokens.remove(token);
+    }
+
+    public void markAutoBreakFcmSentAt(LocalDate date) {
+        this.lastAutoBreakFcmSentAt = date;
     }
 }

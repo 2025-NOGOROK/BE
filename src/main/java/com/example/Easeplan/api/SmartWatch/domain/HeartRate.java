@@ -4,15 +4,13 @@ import com.example.Easeplan.global.auth.domain.User;
 import jakarta.persistence.*;
 import lombok.*;
 
-@Entity
 @Getter
-@Setter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @Builder
-@Table(name = "heart_rate")
+@Entity
+@Table(name = "heart_rate_raw")
 public class HeartRate {
-
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -21,11 +19,12 @@ public class HeartRate {
     @JoinColumn(name = "user_email", referencedColumnName = "email")
     private User user;
 
-    private Float min;
-    private Float max;
-    private Float avg;
-    private String startTime;
-    private String endTime;
-    private Integer count;
-    private Float stress;
+    private Long timestamp;
+    private Integer heartRate;
+    private Double rmssd;
+    private Double stressEma;
+    private Double stressRaw;
+
+
+
 }

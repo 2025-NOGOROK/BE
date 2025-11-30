@@ -216,9 +216,6 @@ public class LongService {
 
 
 
-
-
-        // 짧은 추천을 결과에 추가
         // 짧은 추천을 결과에 추가
         List<FormattedTimeSlot> shortRecommendations = getShortRecommendations(targetDate, availableSlots);
         for (FormattedTimeSlot shortEvent : shortRecommendations) {
@@ -447,213 +444,6 @@ public class LongService {
 // pickTwoDifferentGenres 메서드 수정 버전
 // pickTwoDifferentGenres 전체 코드 수정 버전 (08:00~22:00 추천 시간 제한 포함)
 // LongService.java 안의 pickTwoDifferentGenres 메서드 수정 버전
-    private List<RecommendationOption> pickTwoDifferentGenres(List<Event> events, List<FormattedTimeSlot> slots) {
-        LocalDate today = LocalDate.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-        ZoneId zone = ZoneId.of("Asia/Seoul");
-
-        // 오늘 날짜에 해당하는 행사만 필터링
-        List<Event> todayEvents = events.stream()
-                .filter(e -> !today.isBefore(safeParseDate(e.getStrtdate())) && !today.isAfter(safeParseDate(e.getEndDate())))
-                .collect(Collectors.toList());
-
-        // 08:00~22:00 내의 1시간 이상 빈 시간만 필터링
-        List<FormattedTimeSlot> oneHourSlots = slots.stream()
-                .map(slot -> {
-                    try {
-                        ZonedDateTime start = ZonedDateTime.parse(slot.getStartTime());
-                        ZonedDateTime end = ZonedDateTime.parse(slot.getEndTime());
-
-                        if (Duration.between(start, end).toMinutes() < 60) return null;
-                        if (start.toLocalTime().isBefore(LocalTime.of(8, 0)) || end.toLocalTime().isAfter(LocalTime.of(22, 0)))
-                            return null;
-
-                        return slot;
-                    } catch (Exception e) {
-                        return null;
-                    }
-                })
-                .filter(Objects::nonNull)
-                .collect(Collectors.toList());
-
-        // 추천할 시간 슬롯이 없는 경우 빈 리스트 반환
-        if (oneHourSlots.isEmpty()) return new ArrayList<>();
-
-        // 하나의 추천 시간만 사용 (두 추천을 동일 시간에)
-        FormattedTimeSlot sharedSlot = oneHourSlots.get(0);
-
-        // 장르별로 묶기
-        Map<String, List<Event>> genreMap = todayEvents.stream()
-                .collect(Collectors.groupingBy(Event::getCodename));
-
-        List<String> shuffledGenres = new ArrayList<>(genreMap.keySet());
-        Collections.shuffle(shuffledGenres);
-
-        List<RecommendationOption> options = new ArrayList<>();
-        int count = 0;
-
-        for (String genre : shuffledGenres) {
-            if (count >= 2) break;
-
-            List<Event> genreEvents = genreMap.get(genre);
-            if (genreEvents == null || genreEvents.isEmpty()) continue;
-
-            Event event = genreEvents.get(0); // 장르 내 첫 번째 이벤트 선택
-
-            ZonedDateTime recoStart = ZonedDateTime.parse(sharedSlot.getStartTime());
-            ZonedDateTime recoEnd = recoStart.plusHours(1);
-
-            String formattedStart = recoStart.withZoneSameInstant(zone).format(formatter);
-            String formattedEnd = recoEnd.withZoneSameInstant(zone).format(formatter);
-
-            FormattedTimeSlot eventSlot = new FormattedTimeSlot(
-                    event.getTitle(),
-                    event.getPlace(),
-                    formattedStart,
-                    formattedEnd,
-                    "long-recommend"
-            );
-
-            options.add(new RecommendationOption(
-                    "event",
-                    genre,
-                    Collections.singletonList(eventSlot),
-                    formattedStart,
-                    formattedEnd
-
-            ));
-
-            count++;
-        }
-
-        return options;
-    }
-
-
-    private List<RecommendationOption> pickTwoDifferentGenresWithDifferentSlots(List<Event> events, List<FormattedTimeSlot> slots, LocalDate date) {
-        LocalDate today = date;
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
-        ZoneId zone = ZoneId.of("Asia/Seoul");
-
-        // ✅ 로그: 초기 데이터 상태 확인
-        System.out.println("✅ 입력된 이벤트 수: " + events.size());
-        System.out.println("✅ 입력된 슬롯 수: " + slots.size());
-
-        List<Event> todayEvents = events.stream()
-                .filter(e -> {
-                    LocalDate start = safeParseDate(e.getStrtdate());
-                    LocalDate end = safeParseDate(e.getEndDate());
-                    boolean isValid = !today.isBefore(start) && !today.isAfter(end);
-                    if (!isValid) {
-                        System.out.println("❌ 날짜 제외됨: " + e.getTitle() + " (" + start + " ~ " + end + ")");
-                    }
-                    return isValid;
-                })
-                .collect(Collectors.toList());
-
-        System.out.println("✅ 필터링된 오늘 이벤트 수: " + todayEvents.size());
-
-        List<FormattedTimeSlot> validSlots = slots.stream()
-                .filter(slot -> {
-                    try {
-                        ZonedDateTime start = ZonedDateTime.parse(slot.getStartTime());
-                        ZonedDateTime end = ZonedDateTime.parse(slot.getEndTime());
-                        long duration = Duration.between(start, end).toMinutes();
-                        boolean valid = !start.toLocalTime().isBefore(LocalTime.of(8, 0))
-                                && !end.toLocalTime().isAfter(LocalTime.of(22, 0))
-                                && duration >= 60;
-                        if (!valid) {
-                            System.out.println("❌ 무시된 슬롯: " + slot.getStartTime() + " ~ " + slot.getEndTime());
-                        }
-                        return valid;
-                    } catch (Exception e) {
-                        return false;
-                    }
-                }).collect(Collectors.toList());
-
-        System.out.println("✅ 유효한 슬롯 수: " + validSlots.size());
-
-        if (validSlots.size() < 1) {
-            System.out.println("❌ 유효 슬롯 부족. 추천 생성 실패");
-            return new ArrayList<>();
-        }
-
-        Map<String, List<Event>> genreMap = todayEvents.stream()
-                .collect(Collectors.groupingBy(Event::getCodename));
-
-        List<String> shuffledGenres = new ArrayList<>(genreMap.keySet());
-        Collections.shuffle(shuffledGenres);
-
-        List<RecommendationOption> options = new ArrayList<>();
-        Set<Integer> usedSlotIndices = new HashSet<>();
-        int addedCount = 0;
-
-        for (String genre : shuffledGenres) {
-            if (addedCount >= 2 || usedSlotIndices.size() >= validSlots.size()) break;
-
-            List<Event> genreEvents = genreMap.get(genre);
-            if (genreEvents == null || genreEvents.isEmpty()) continue;
-
-            // 슬롯 선택
-            FormattedTimeSlot selectedSlot = null;
-            int selectedSlotIndex = -1;
-            for (int i = 0; i < validSlots.size(); i++) {
-                if (!usedSlotIndices.contains(i)) {
-                    selectedSlot = validSlots.get(i);
-                    selectedSlotIndex = i;
-                    break;
-                }
-            }
-
-            if (selectedSlot == null) continue;
-
-            Event event = genreEvents.get(0);
-
-            System.out.println("🎯 추천 생성: " + event.getTitle() + " (" + genre + ")");
-            System.out.println("🕒 사용 슬롯: " + selectedSlot.getStartTime());
-
-            ZonedDateTime recoStart = ZonedDateTime.parse(selectedSlot.getStartTime());
-            ZonedDateTime recoEnd = recoStart.plusHours(1);
-
-            String formattedStart = recoStart.withZoneSameInstant(zone).format(formatter);
-            String formattedEnd = recoEnd.withZoneSameInstant(zone).format(formatter);
-
-            FormattedTimeSlot eventSlot = new FormattedTimeSlot(
-                    event.getTitle(),
-                    event.getPlace(),
-                    formattedStart,
-                    formattedEnd,
-                    "long-recommend"
-            );
-
-            options.add(new RecommendationOption(
-                    "event",
-                    genre,
-                    Collections.singletonList(eventSlot),
-                    formattedStart,
-                    formattedEnd
-            ));
-
-            usedSlotIndices.add(selectedSlotIndex);
-            addedCount++;
-        }
-
-        System.out.println("✅ 최종 추천 생성 수: " + options.size());
-        return options;
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -744,9 +534,11 @@ public class LongService {
         String title = lastLong.getEventTitle();
         String genre = lastLong.getLabel();
 
-        Optional<HeartRate> recentOpt = smartwatchRepository.findTopByUserEmailOrderByStartTimeDesc(email);
-        Float stress = recentOpt.map(HeartRate::getAvg).orElse(null);
-
+        // ★ 변경: 최신 raw 기준 stressEma 사용
+        Optional<HeartRate> recentOpt = smartwatchRepository.findTopByUserEmailOrderByTimestampDesc(email);
+        Float stress = recentOpt
+                .map(hr -> Optional.ofNullable(hr.getStressEma()).map(Double::floatValue).orElse(0f))
+                .orElse(0f);
         List<RecommendationResult> recommends = getRecommendations(title, genre, stress, latitude, longitude);
 
         LocalDate today = LocalDate.now(ZoneId.of("Asia/Seoul"));
@@ -868,34 +660,6 @@ public class LongService {
         }
 
         return scenarios;
-    }
-
-
-
-
-
-
-
-
-
-    //“어제 사용자가 실제로 선택한 긴 추천(공연)”을 DB에서 찾아오는 서비스 메서드
-    public UserChoice getYesterdayLongChoice(String email) {
-        // 어제 날짜 계산
-        LocalDate yesterday = LocalDate.now().minusDays(1);
-        String yesterdayStart = yesterday.atStartOfDay().toString(); // "2025-05-27T00:00:00"
-        String yesterdayEnd = yesterday.atTime(23, 59, 59).toString(); // "2025-05-27T23:59:59"
-
-        // User 조회
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        // 어제 type="event" 일정 조회
-        List<UserChoice> longChoices = userChoiceRepository
-                .findByUserAndTypeAndStartTimeBetween(user, "event", yesterdayStart, yesterdayEnd);
-
-        if (longChoices.isEmpty()) throw new RuntimeException("어제 긴 추천 없음");
-
-        return longChoices.get(longChoices.size() - 1); // 가장 마지막 저장된 긴 추천
     }
 
 

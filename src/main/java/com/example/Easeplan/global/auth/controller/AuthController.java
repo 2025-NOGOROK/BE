@@ -6,6 +6,10 @@ import com.example.Easeplan.global.auth.dto.*;
 import com.example.Easeplan.global.auth.repository.UserRepository;
 import com.example.Easeplan.global.auth.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -111,8 +115,33 @@ public class AuthController {
         }
 
     }
-    @Operation(summary = "로그인", description = """
-        로그인을 진행합니다.""")
+
+
+
+    @Operation(
+            summary = "로그인",
+            description = "이메일/비밀번호로 로그인합니다. 구글 리프레시 토큰이 없거나 만료된 경우 401과 재연동 URL을 반환합니다."
+    )
+    @ApiResponse(
+            responseCode = "401",
+            description = "구글 재연동 필요",
+            content = @Content(
+                    mediaType = "application/json",
+                    schema = @Schema(implementation = com.example.Easeplan.global.dto.ApiErrorResponse.class),
+                    examples = {
+                            @ExampleObject(
+                                    name = "GoogleRelinkRequired",
+                                    value = """
+                {
+                  "error": "GOOGLE_RELINK_REQUIRED",
+                  "message": "Google tokens revoked/expired; relink required",
+                  "authUrl": "https://accounts.google.com/o/oauth2/v2/auth?...&prompt=consent"
+                }
+                """
+                            )
+                    }
+            )
+    )
     @PostMapping("/signIn")
     public ResponseEntity<CustomResponse<TokenResponse>> signIn(@RequestBody SignInRequest request) {
         try {
@@ -129,8 +158,10 @@ public class AuthController {
                 String newJwtToken = jwtProvider.createToken(user.getEmail());  // JWT 새로 생성
 
                 // 구글 액세스 토큰과 새로 생성된 JWT를 응답에 추가
-                response.setGoogleAccessToken(newAccessToken);  // 새로 갱신된 구글 액세스 토큰
-                response.setJwtToken(newJwtToken);  // 새로 생성된 JWT
+                response = response.toBuilder()
+                        .googleAccessToken(newAccessToken)
+                        .jwtToken(newJwtToken)
+                        .build();
 
                 // 사용자 정보 업데이트
                 user.updateGoogleTokens(newAccessToken, user.getGoogleRefreshToken(), user.getGoogleAccessTokenExpiresAt(), newJwtToken);
@@ -148,11 +179,12 @@ public class AuthController {
         }
     }
 
+
     @Operation(summary = "비밀번호 변경 시 이메일 확인", description = """
             비밀번호를 변경 시 이메일을 조회합니다.""")
     @PostMapping("/checkEmail")
     public ResponseEntity<?> checkEmail(@RequestBody EmailRequest request) {
-        String email = request.getEmail();
+        String email = request.email();
         boolean exists = authService.existsByEmail(email);
         String message = exists ? "이메일이 존재합니다." : "일치하는 회원정보가 없습니다.";
         return ResponseEntity.ok(new CustomResponse<>(message, exists));

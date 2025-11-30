@@ -15,8 +15,9 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 
-@SecurityRequirement(name = "accessToken")
+@SecurityRequirement(name = "bearerAuth")
 @Tag(name = "하루기록", description = "하루기록 API")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequestMapping("/api/haru")
 public class EvaluationController {
@@ -36,6 +37,7 @@ public class EvaluationController {
     ) {
         return evaluationService.getEvaluationByDate(user, date);
     }
+
 
 
     // ★ 추가: 기록 저장 API

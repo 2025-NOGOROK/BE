@@ -7,7 +7,6 @@ import com.example.Easeplan.global.auth.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -16,71 +15,59 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
 
-
-
-@SecurityRequirement(name = "accessToken")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/devices")
+@Tag(name = "스마트워치 연동", description = "스마트워치 API")
 public class SmartwatchController {
     private final SmartwatchService smartwatchService;
     private final UserRepository userRepository;
+
     @Operation(
-            summary = "startTime 1시간마다 심박수 데이터를 저장",
+            summary = "원시 심박 데이터 저장 (단일도 samples에 1개로 보내면 됨)",
             description = """
-        ### 저장 예시
-        ```
+        ### 요청 예시 (단일)
         {
           "email": "user@example.com",
-          "min": 60.0,
-          "max": 120.0,
-          "avg": 80.0,
-          "startTime": "2025-05-18T14:00:00",
-          "endTime": "2025-05-18T14:30:00",
-          "count": 150,
-          "stress": 75.5
+          "samples": [
+            { "timestamp": 1724304000000, "heartRate": 76, "rmssd": 38.2, "stressEma": 41, "stressRaw": 63 }
+          ]
         }
-        ```
-        """)
-    @Tag(name = "스마트워치 연동", description = "스마트워치 API")
+        ### 요청 예시 (배치)
+        {
+          "email": "user@example.com",
+          "samples": [
+            { "timestamp": 1724304000000, "heartRate": 76, "rmssd": 38.2, "stressEma": 41, "stressRaw": 63 },
+            { "timestamp": 1724307600000, "heartRate": 72, "rmssd": 42.1, "stressEma": 35, "stressRaw": 54 }
+          ]
+        }
+        """
+    )
     @PostMapping("/heartrate")
-    public ResponseEntity<?> submitData(@RequestBody @Valid HeartRateRequest request) {
-        try {
-            if (request.getEmail() == null) {
-                throw new RuntimeException("이메일은 필수입니다.");
-            }
-            smartwatchService.saveData(request);
-            return ResponseEntity.ok("데이터 저장 성공");
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+    public ResponseEntity<?> submitRawData(@RequestBody HeartRateRequest request) {
+        if (request.getEmail() == null) {
+            return ResponseEntity.badRequest().body("이메일은 필수입니다.");
         }
+        smartwatchService.saveData(request);
+        return ResponseEntity.ok("원시 데이터 저장 성공");
     }
 
-    // 최근 스트레스 지수 반환
-    @Tag(name = "메인페이지", description = "스트레스 관리API+여행추천API")
+
     @Operation(
-            summary = "스트레스 데이터 반환",
+            summary = "가장 최신 stressEma 반환",
             description = """
         헤더에 토큰을 넣어주세요.
-        ### 반환 예시
-        ```
-        {
-          "stress": 75.5
-        }
-        ```
-        """)
+        ### 응답 예시
+        { "stressEma": 41.0 }
+        """
+    )
     @GetMapping("/latest")
-    public ResponseEntity<?> getLatestAvg(@AuthenticationPrincipal UserDetails userDetails) {
-        System.out.println("GET /api/devices/latest called");
+    public ResponseEntity<?> getLatest(@AuthenticationPrincipal UserDetails userDetails) {
         User user = userRepository.findByEmail(userDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        return smartwatchService.getClosestAvgHeartRate(user)
-                .map(avg -> ResponseEntity.ok().body(Map.of("avg", avg)))
+        return smartwatchService.getLatestStressEma(user)
+                .map(val -> ResponseEntity.ok().body(Map.of("stressEma", val)))
                 .orElse(ResponseEntity.notFound().build());
     }
-
-
 }
-
-
-

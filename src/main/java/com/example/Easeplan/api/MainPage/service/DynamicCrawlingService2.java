@@ -20,7 +20,7 @@ public class DynamicCrawlingService2 {
         List<Map<String, String>> contents = new ArrayList<>();
 
         // 크롬드라이버 경로 설정
-        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver");
+        System.setProperty("webdriver.chrome.driver", "/usr/local/bin/chromedriver" );
 
         ChromeOptions options = new ChromeOptions();
         options.addArguments("--headless=new");

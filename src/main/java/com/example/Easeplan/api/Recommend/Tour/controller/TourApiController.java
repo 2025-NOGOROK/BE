@@ -4,6 +4,7 @@ import com.example.Easeplan.api.Recommend.Tour.dto.TourApiResponse;
 import com.example.Easeplan.api.Recommend.Tour.service.TourApiService;
 import com.example.Easeplan.api.Recommend.Tour.service.TourDetailService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "메인페이지", description = "스트레스 관리API+여행추천API")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 public class TourApiController {
 
@@ -56,6 +58,7 @@ public class TourApiController {
 
     @GetMapping("/api/tour/detail")
     public String getTourDetail(
+            @AuthenticationPrincipal UserDetails userDetails,
             @RequestParam String seq,
             @RequestParam(required = false) Double mapX, // 현재 경도
             @RequestParam(required = false) Double mapY  // 현재 위도

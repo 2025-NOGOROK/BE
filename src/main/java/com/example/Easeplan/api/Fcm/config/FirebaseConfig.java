@@ -12,7 +12,7 @@ import java.io.FileInputStream;
 import java.io.InputStream;
 
 @Configuration
-@Profile("!test") // ⬅️ 테스트 환경에서는 이 설정 파일 자체를 무시!
+@Profile("!test")
 public class FirebaseConfig {
 
     @Value("${firebase.key-path}")
@@ -28,6 +28,11 @@ public class FirebaseConfig {
             if (FirebaseApp.getApps().stream().noneMatch(app -> app.getName().equals("nogorok"))) {
                 FirebaseApp.initializeApp(options, "nogorok");
             }
+
+            // ✅ 여기서 바로 projectId 찍기
+            FirebaseApp app = FirebaseApp.getInstance("nogorok");
+            System.out.println("Firebase projectId = " + app.getOptions().getProjectId());
+
         } catch (Exception e) {
             throw new RuntimeException("Firebase 서비스 계정 키 로딩 실패: " + keyPath, e);
         }

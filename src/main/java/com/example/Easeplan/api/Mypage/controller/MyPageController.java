@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 
 
 @Tag(name = "마이페이지", description = "마이페이지 API")
-@SecurityRequirement(name = "accessToken")
+@SecurityRequirement(name = "bearerAuth")
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/mypage")
@@ -50,6 +50,7 @@ public class MyPageController {
     public String getUserName(@AuthenticationPrincipal User user) {
         return user.getName(); // User 엔티티의 getName() 메서드를 통해 사용자 이름 반환
     }
+
 
 
     @Operation(

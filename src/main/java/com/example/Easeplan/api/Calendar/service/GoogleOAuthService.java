@@ -2,15 +2,8 @@ package com.example.Easeplan.api.Calendar.service;
 
 import com.example.Easeplan.api.Calendar.config.GoogleOAuthProperties;
 import com.example.Easeplan.global.auth.domain.User;
+import com.example.Easeplan.global.exception.GlobalExceptionHandler;
 import com.example.Easeplan.global.auth.repository.UserRepository;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdTokenVerifier;
-import com.google.api.client.googleapis.auth.oauth2.GooglePublicKeysManager;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.HttpTransport;
-import com.google.api.client.http.javanet.NetHttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.gson.GsonFactory;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import lombok.extern.slf4j.Slf4j;
@@ -23,9 +16,10 @@ import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
-import java.util.Collections;
 import java.util.Map;
 
 @Slf4j
@@ -37,6 +31,7 @@ public class GoogleOAuthService {
 
     @Value("${jwt.secret}")
     private String jwtSecret;
+
     public GoogleOAuthService(GoogleOAuthProperties googleOAuthProperties, UserRepository userRepository) {
         this.googleOAuthProperties = googleOAuthProperties;
         this.userRepository = userRepository;
@@ -84,8 +79,6 @@ public class GoogleOAuthService {
     }
 
 
-
-
     // JWT에서 이메일을 추출하는 메서드
 
     // JWT 토큰에서 이메일을 추출하는 메서드
@@ -105,17 +98,14 @@ public class GoogleOAuthService {
     }
 
 
-
-
     // 구글 액세스 토큰을 리프레시 토큰으로 갱신
     @Transactional
     public String getOrRefreshGoogleAccessToken(User user) {
-        if (user.getGoogleRefreshToken() == null || user.getGoogleRefreshToken().isEmpty()) {
-            log.warn("리프레시 토큰 없음. 구글 액세스 토큰만 반환.");
-            return user.getGoogleAccessToken(); // 리프레시 토큰이 없으면 기존 액세스 토큰을 반환
+        if (user.getGoogleRefreshToken() == null || user.getGoogleRefreshToken().isBlank()) {
+            throw new GlobalExceptionHandler.GoogleRelinkRequiredException(
+                    "No refresh token stored; relink required");
         }
 
-        // 리프레시 토큰을 사용하여 새로운 액세스 토큰을 요청
         String url = "https://oauth2.googleapis.com/token";
         MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
         params.add("client_id", googleOAuthProperties.getWebClientId());
@@ -125,33 +115,53 @@ public class GoogleOAuthService {
 
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
-        HttpEntity<MultiValueMap<String, String>> request = new HttpEntity<>(params, headers);
-        RestTemplate restTemplate = new RestTemplate();
 
         try {
-            ResponseEntity<Map> response = restTemplate.exchange(url, HttpMethod.POST, request, Map.class);
-            if (response.getStatusCode() != HttpStatus.OK) {
-                throw new RuntimeException("구글 액세스 토큰 갱신 실패");
-            }
+            ResponseEntity<Map> r = new RestTemplate()
+                    .exchange(url, HttpMethod.POST, new HttpEntity<>(params, headers), Map.class);
 
-            Map<String, Object> responseBody = response.getBody();
-            String newAccessToken = (String) responseBody.get("access_token");
-            Long expiresIn = ((Number) responseBody.get("expires_in")).longValue();
-            LocalDateTime expiresAt = LocalDateTime.now(ZoneOffset.UTC).plusSeconds(expiresIn);
+            Map<String, Object> body = r.getBody();
+            String newAccess = (String) body.get("access_token");
+            Long expiresIn = ((Number) body.get("expires_in")).longValue();
 
-            // 새로운 액세스 토큰 및 만료 시간 저장
-            user.setGoogleAccessToken(newAccessToken);
-            user.setGoogleAccessTokenExpiresAt(expiresAt);
-            userRepository.save(user); // 유저 정보 업데이트
+            LocalDateTime expUtc = LocalDateTime.now(ZoneOffset.UTC).plusSeconds(expiresIn);
+// refreshToken/JWT는 그대로 유지 (null 넘기면 기존 값 유지되도록 User에 구현돼 있음)
+            user.updateGoogleTokens(newAccess, null, expUtc, user.getJwtToken());
+            userRepository.save(user);
 
-            log.info("구글 액세스 토큰 갱신 성공");
-            return newAccessToken;
+            return newAccess;
 
         } catch (HttpClientErrorException e) {
-            log.error("구글 액세스 토큰 갱신 오류: ", e);
+            String resp = e.getResponseBodyAsString();
+            if (e.getStatusCode().is4xxClientError() && resp != null && resp.contains("invalid_grant")) {
+                user.unlinkGoogle();
+                userRepository.save(user);
+                throw new GlobalExceptionHandler.GoogleRelinkRequiredException(
+                        "Google tokens revoked/expired; relink required"
+                );
+            }
             throw new RuntimeException("액세스 토큰 갱신 실패: " + e.getMessage(), e);
         }
+
+
     }
 
-
+    public String buildAuthUrl() {
+        String scope = String.join(" ",
+                "openid", "email", "profile",
+                "https://www.googleapis.com/auth/calendar",
+                "https://www.googleapis.com/auth/calendar.events"
+        );
+        return "https://accounts.google.com/o/oauth2/v2/auth"
+                + "?client_id=" + googleOAuthProperties.getWebClientId()
+                + "&redirect_uri=" + URLEncoder.encode(googleOAuthProperties.getRedirectUri(), StandardCharsets.UTF_8)
+                + "&response_type=code"
+                + "&scope=" + URLEncoder.encode(scope, StandardCharsets.UTF_8)
+                + "&access_type=offline"
+                + "&prompt=consent"
+                + "&include_granted_scopes=true";
+    }
 }
+
+
+
