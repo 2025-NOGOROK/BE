@@ -11,10 +11,10 @@ NOGOROK은 본 프로젝트는 갤럭시 워치의 실시간 심박 기반 스�
 <img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/e06e01ff-4ae6-43a6-b2cf-cb92d3dd8b17" />
 <img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/1a93d0c0-860d-4bd7-a690-6d2f57d4abe2" />
 
-# 🏗️ 아키텍쳐
+## 🏗️ 아키텍쳐
 <img width="2355" height="1359" alt="image" src="https://github.com/user-attachments/assets/9bd56072-438a-47c0-b59a-c8a9bdfd0103" />
 
-# ⚙️ 기술 스택 (Tech Stack)
+## ⚙️ 기술 스택 (Tech Stack)
 | 구분 | 기술 스택 | 버전 | 역할 및 사용 목적 |
 | :--- | :--- | :--- | :--- |
 | **백엔드 코어** | Spring Boot | 3.4.3 (Java 17) | REST API 개발 및 애플리케이션 프레임워크 제공 |
@@ -31,5 +31,5 @@ NOGOROK은 본 프로젝트는 갤럭시 워치의 실시간 심박 기반 스�
 | | Springdoc OpenAPI | 2.7.0 | API 명세 자동화 (Swagger UI) |
 | **인프라** | AWS EC2, Docker, Nginx | - | 서버 호스팅, 컨테이너 환경 구축, 리버스 프록시 |
   
-# 📄ERD 다이어그램
+## 📄ERD 다이어그램
 <img width="332" height="559" alt="image" src="https://github.com/user-attachments/assets/55e5bf71-6645-492e-943d-2e3ec678aaf3" />
