@@ -31,7 +31,7 @@ NOGOROK은 본 프로젝트는 갤럭시 워치의 실시간 심박 기반 스�
 <img width="2355" height="1359" alt="image" src="https://github.com/user-attachments/assets/9bd56072-438a-47c0-b59a-c8a9bdfd0103" />
 
   
-## 📄ERD 다이어그램
+## 📄 ERD 다이어그램
 ![nn](https://github.com/user-attachments/assets/ab3e78cf-35a1-418d-a8b7-e28e44e3e2f6)
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="558.992126" height="782.900787" viewBox="0 0 558.992126 782.900787">
@@ -2829,7 +2829,7 @@ NOGOROK은 본 프로젝트는 갤럭시 워치의 실시간 심박 기반 스�
 | **상수 (Constants)** | **대문자 스네이크 케이스 (UPPER_SNAKE_CASE)** | `ALWAYS`, `NEVER`, `MODERATE` |
 
 
-## 📂파일 구조
+## 📂 파일 구조
 
 ```
 src/main/java/com/example/Easeplan
