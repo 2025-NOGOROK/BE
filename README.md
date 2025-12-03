@@ -10,11 +10,6 @@ NOGOROK은 본 프로젝트는 갤럭시 워치의 실시간 심박 기반 스�
 <img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/e06e01ff-4ae6-43a6-b2cf-cb92d3dd8b17" />
 <img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/1a93d0c0-860d-4bd7-a690-6d2f57d4abe2" />
 
-
-## 🏗️ 아키텍쳐
-<img width="2355" height="1359" alt="image" src="https://github.com/user-attachments/assets/9bd56072-438a-47c0-b59a-c8a9bdfd0103" />
-
-
 ## ⚙️ 기술 스택 (Tech Stack)
 | 구분 | 기술 스택 | 버전 | 역할 및 사용 목적 |
 | :--- | :--- | :--- | :--- |
@@ -31,6 +26,9 @@ NOGOROK은 본 프로젝트는 갤럭시 워치의 실시간 심박 기반 스�
 | **개발 도구** | Lombok | - | 반복적인 자바 코드(Getter, Setter 등) 자동 생성 |
 | | Springdoc OpenAPI | 2.7.0 | API 명세 자동화 (Swagger UI) |
 | **인프라** | AWS EC2, Docker, Nginx | - | 서버 호스팅, 컨테이너 환경 구축, 리버스 프록시 |
+
+## 🏗️ 아키텍쳐
+<img width="2355" height="1359" alt="image" src="https://github.com/user-attachments/assets/9bd56072-438a-47c0-b59a-c8a9bdfd0103" />
 
   
 ## 📄ERD 다이어그램
