@@ -10,6 +10,8 @@ NOGOROK은 본 프로젝트는 갤럭시 워치의 실시간 심박 기반 스�
 <img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/e06e01ff-4ae6-43a6-b2cf-cb92d3dd8b17" />
 <img width="1080" height="1350" alt="image" src="https://github.com/user-attachments/assets/1a93d0c0-860d-4bd7-a690-6d2f57d4abe2" />
 
+---
+
 ## ⚙️ 기술 스택 (Tech Stack)
 | 구분 | 기술 스택 | 버전 | 역할 및 사용 목적 |
 | :--- | :--- | :--- | :--- |
@@ -27,9 +29,12 @@ NOGOROK은 본 프로젝트는 갤럭시 워치의 실시간 심박 기반 스�
 | | Springdoc OpenAPI | 2.7.0 | API 명세 자동화 (Swagger UI) |
 | **인프라** | AWS EC2, Docker, Nginx | - | 서버 호스팅, 컨테이너 환경 구축, 리버스 프록시 |
 
+---
+
 ## 🏗️ 아키텍쳐
 <img width="2355" height="1359" alt="image" src="https://github.com/user-attachments/assets/9bd56072-438a-47c0-b59a-c8a9bdfd0103" />
 
+---
   
 ## 📄 ERD 다이어그램
 ![nn](https://github.com/user-attachments/assets/ab3e78cf-35a1-418d-a8b7-e28e44e3e2f6)
@@ -2820,33 +2825,55 @@ NOGOROK은 본 프로젝트는 갤럭시 워치의 실시간 심박 기반 스�
 <path fill-rule="nonzero" fill="rgb(59.607843%, 74.901961%, 85.490196%)" fill-opacity="1" stroke-width="1" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(70%, 70%, 70%)" stroke-opacity="1" stroke-miterlimit="10" d="M 239.500651 64.497233 C 239.500651 68.920736 235.917752 72.496745 231.501139 72.496745 L 8.500109 72.496745 C 4.083496 72.496745 0.500597 68.920736 0.500597 64.497233 Z M 239.500651 64.497233 " transform="matrix(0.566929, 0, 0, 0.566929, 14.173228, 73.133858)"/>
 </svg>
 
+---
 
-## 📜 NOGOROK 백엔드 명명 규칙 (Naming Conventions)
+## 📜 NOGOROK 백엔드 명명 규칙 
 | 항목 | 명명 규칙 | 예시 |
 | :--- | :--- | :--- |
 | **클래스/인터페이스** | **파스칼 케이스 (PascalCase)** | `UserService`, `ContentRecommender`, `StressData` |
 | **메서드/변수** | **카멜 케이스 (camelCase)** | `calculateStressIndex`, `getUserSchedule` |
 | **상수 (Constants)** | **대문자 스네이크 케이스 (UPPER_SNAKE_CASE)** | `ALWAYS`, `NEVER`, `MODERATE` |
 
+---
 
 ## 📂 파일 구조
 
 ```
 src/main/java/com/example/Easeplan
-├── api       // [도메인 모음] Calendar, Recommend 등 모든 서비스별 도메인이 포함됨
-│   ├── Calendar
-│   ├── Emergency
-│   ├── Fcm
-│   ├── HaruRecord
-│   ├── MainPage
-│   ├── Mypage
-│   ├── Recommend
-│   ├── Report
-│   ├── ShortFlask/service
-│   ├── SmartWatch
-│   ├── Survey
-│   └── test/controller
-├── global    // [전역 모듈] 로그인, 예외 처리 등
-│   
-└── EaseplanApplication.java // Spring Boot 메인 실행 파일
+├── api                                    # [도메인 모듈] 기능 단위 서비스
+│   ├── Calendar                            # Google Calendar 연동 및 OAuth
+│   │   ├── config
+│   │   ├── controller
+│   │   ├── domain
+│   │   ├── dto
+│   │   ├── repository
+│   │   └── service
+│   ├── Emergency                           # 긴급 스트레스 감지 / 휴식 추천
+│   ├── Fcm                                 # Firebase Cloud Messaging 기반 알림 시스템
+│   ├── HaruRecord                          # 하루 평가 기록 (감정/날씨/피로도)
+│   ├── MainPage                            # 메인 홈 / 퀴즈 / 크롤링
+│   ├── Mypage                              # 사용자 정보 페이지
+│   ├── Recommend                           # 휴식/공연 추천 엔진
+│   │   ├── Event                           # 외부 문화 행사 API 조회
+│   │   └── Long                            # 장기 일정 기반 맞춤 추천
+│   ├── Report                              # 사용자 리포트 생성
+│   ├── ShortFlask                          # Flask 기반 단기 추천 엔진
+│   ├── SmartWatch                          # 웨어러블 데이터 수집
+│   ├── Survey                              # 설문조사
+│   └── test                                # 테스트용 컨트롤러
+│
+├── global                                  # 전역 설정 / 보안 / JWT / 예외 처리
+│   ├── config
+│   ├── exception
+│   ├── jwt
+│   ├── util
+│   └── ...
+│
+├── resources                               # 설정 & 템플릿
+│   ├── application.yml
+│   ├── templates
+│   └── static
+│
+└── EaseplanApplication.java                # Spring Boot 시작점
+
 ```
