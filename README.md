@@ -2827,12 +2827,12 @@ NOGOROK은 본 프로젝트는 갤럭시 워치의 실시간 심박 기반 스�
 
 ---
 
-## 📜 NOGOROK 백엔드 명명 규칙 
+## 📜 백엔드 명명 규칙 
 | 항목 | 명명 규칙 | 예시 |
 | :--- | :--- | :--- |
-| **클래스/인터페이스** | **파스칼 케이스 (PascalCase)** | `UserService`, `ContentRecommender`, `StressData` |
-| **메서드/변수** | **카멜 케이스 (camelCase)** | `calculateStressIndex`, `getUserSchedule` |
-| **상수 (Constants)** | **대문자 스네이크 케이스 (UPPER_SNAKE_CASE)** | `ALWAYS`, `NEVER`, `MODERATE` |
+| **클래스/인터페이스** | 파스칼 케이스 (PascalCase) | `UserService`, `ContentRecommender`, `StressData` |
+| **메서드/변수** | 카멜 케이스 (camelCase) | `calculateStressIndex`, `getUserSchedule` |
+| **상수 (Constants)** | 대문자 스네이크 케이스 (UPPER_SNAKE_CASE) | `ALWAYS`, `NEVER`, `MODERATE` |
 
 ---
 
