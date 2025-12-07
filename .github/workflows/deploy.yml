@@ -18,8 +18,11 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: application.yml 파일 만들기
-        run: echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./src/main/resources/application.yml
+      - name: Create application.yml from secret
+        run: |
+          mkdir -p ./src/main/resources
+          printf "%s" "${{ secrets.APPLICATION_PROPERTIES }}" > ./src/main/resources/application.yml
+      
 
       # 🔥 Firebase 서비스 계정 키 생성 (추가된 부분)
       - name: Generate Firebase Key
