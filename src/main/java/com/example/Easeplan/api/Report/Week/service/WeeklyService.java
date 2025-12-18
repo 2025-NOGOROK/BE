@@ -35,9 +35,16 @@ public class WeeklyService {
         LocalDate startOfWeek = today.with(DayOfWeek.MONDAY);
         LocalDate endOfWeek = today.with(DayOfWeek.SUNDAY);
 
-        List<DailyEvaluation> evaluations = dailyEvaluationRepository.findAllByUserAndDateBetween(user, startOfWeek, endOfWeek);
+        List<DailyEvaluation> evaluations =
+                dailyEvaluationRepository.findAllByUserAndDateBetween(user, startOfWeek, endOfWeek);
+
         Map<DayOfWeek, DailyEvaluation> evalMap = evaluations.stream()
-                .collect(Collectors.toMap(e -> e.getDate().getDayOfWeek(), e -> e));
+                .collect(Collectors.toMap(
+                        e -> e.getDate().getDayOfWeek(),
+                        e -> e,
+                        (oldVal, newVal) ->
+                                newVal.getDate().isAfter(oldVal.getDate()) ? newVal : oldVal
+                ));
 
         List<DayEmotionFatigueDto> days = Arrays.stream(DayOfWeek.values())
                 .map(dow -> {
@@ -55,14 +62,22 @@ public class WeeklyService {
 
 
 
+
     public WeeklyWeatherResponse getCurrentWeekWeather(User user) {
         LocalDate today = LocalDate.now();
         LocalDate startOfWeek = today.with(DayOfWeek.MONDAY);
         LocalDate endOfWeek = today.with(DayOfWeek.SUNDAY);
 
-        List<DailyEvaluation> evaluations = dailyEvaluationRepository.findAllByUserAndDateBetween(user, startOfWeek, endOfWeek);
+        List<DailyEvaluation> evaluations =
+                dailyEvaluationRepository.findAllByUserAndDateBetween(user, startOfWeek, endOfWeek);
+
         Map<DayOfWeek, DailyEvaluation> evalMap = evaluations.stream()
-                .collect(Collectors.toMap(e -> e.getDate().getDayOfWeek(), e -> e));
+                .collect(Collectors.toMap(
+                        e -> e.getDate().getDayOfWeek(),
+                        e -> e,
+                        (oldVal, newVal) ->
+                                newVal.getDate().isAfter(oldVal.getDate()) ? newVal : oldVal
+                ));
 
         List<DayWeatherDto> days = Arrays.stream(DayOfWeek.values())
                 .map(dow -> {
@@ -76,6 +91,7 @@ public class WeeklyService {
 
         return new WeeklyWeatherResponse(days);
     }
+
 
 
 
